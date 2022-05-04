@@ -11,7 +11,6 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Hello, world!\n"))
 }
 
-
 func New(ref *mux.Router) *mux.Router {
 	r := ref.PathPrefix("/api/v1").Subrouter()
 
