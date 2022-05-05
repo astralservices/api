@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
@@ -15,8 +16,22 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func MainHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello, world!\n"))
+func IndexHandler(w http.ResponseWriter, r *http.Request) {
+	data, err := json.Marshal(utils.Response[struct {
+		Message string `json:"message"`
+	}]{
+		Result: struct {
+			Message string "json:\"message\""
+		}{Message: "API is running!"},
+		Code: http.StatusOK,
+	})
+
+	if err != nil {
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	w.Write(data)
 }
 
 func main() {
@@ -26,10 +41,12 @@ func main() {
 	flag.Parse()
 
 	r := mux.NewRouter()
-	r.Use(utils.CORSMiddleware())
+	r.Use(utils.CORSMiddleware)
+	// middleware for setting every response header content-type to application/json
+	r.Use(utils.JSONMiddleware)
 	r.StrictSlash(true)
 	// Add your routes as needed
-	r.HandleFunc("/", MainHandler)
+	r.HandleFunc("/", IndexHandler)
 	r.Handle("/api/v1", v1.New(r))
 
 	srv := &http.Server{

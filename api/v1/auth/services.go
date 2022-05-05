@@ -1,18 +1,30 @@
 package auth
 
 import (
+	"encoding/json"
 	"net/http"
-	"os"
-	"strings"
-	"time"
 
-	db "github.com/astralservices/api/supabase"
+	"github.com/astralservices/api/api/v1/auth/providers"
+	"github.com/astralservices/api/utils"
 	"github.com/gorilla/mux"
-	sb "github.com/nedpals/supabase-go"
 )
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello, world!\n"))
+	data, err := json.Marshal(utils.Response[struct {
+		Message string `json:"message"`
+	}]{
+		Result: struct {
+			Message string "json:\"message\""
+		}{Message: "API is running!"},
+		Code: http.StatusOK,
+	})
+
+	if err != nil {
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	w.Write(data)
 }
 
 func CallbackHandler(w http.ResponseWriter, r *http.Request) {
@@ -21,7 +33,13 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch provider {
 	case "discord":
-		DiscordCallbackHandler(w, r)
+		providers.NewDiscord().CallbackHandler(w, r)
+
+	case "roblox":
+		providers.NewRoblox().CallbackHandler(w, r)
+
+	case "lastfm":
+		providers.NewLastFm().CallbackHandler(w, r)
 
 	default:
 		w.Write([]byte("Unknown provider"))
@@ -29,59 +47,39 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	supabase := db.New()
-	var redirect string
-	if r.TLS != nil {
-		redirect = "https://" + r.Host + "/api/v1/auth/callback/discord"
-	} else {
-		redirect = "http://" + r.Host + "/api/v1/auth/callback/discord"
-	}
-	w.Header().Add("redirecturl", redirect)
-	authDetails, err := supabase.Auth.SignInWithProvider(sb.ProviderSignInOptions{
-		Provider:   "discord",
-		RedirectTo: redirect,
-		Scopes:     []string{"identify", "email", "guilds"},
-	})
+	vars := mux.Vars(r)
+	provider := vars["provider"]
 
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
+	switch provider {
+	case "discord":
+		providers.NewDiscord().LoginHandler(w, r)
 
-	http.Redirect(w, r, authDetails.URL, http.StatusPermanentRedirect)
+	case "roblox":
+		providers.NewRoblox().LoginHandler(w, r)
+
+	case "lastfm":
+		providers.NewLastFm().LoginHandler(w, r)
+
+	default:
+		w.Write([]byte("Unknown provider"))
+	}
 }
 
-func DiscordCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	var accessToken string
-	var providerToken string
+func ProviderHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	provider := vars["provider"]
 
-	accessToken = r.URL.Query().Get("access_token")
-	providerToken = r.URL.Query().Get("provider_token")
+	switch provider {
+	default:
+		data, err := json.Marshal(map[string]string{
+			"error": "Unknown provider",
+		})
 
-	var domain string
+		if err != nil {
+			w.Write([]byte("Error"))
+			return
+		}
 
-	domain = r.Host
-	if pos := strings.Index(domain, ":"); pos != -1 {
-		domain = domain[:pos]
+		w.Write(data)
 	}
-
-	// set the access token and provider token in the session cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:  "access_token",
-		Value: accessToken,
-		Path:  "/",
-		// Domain:   domain,
-		Expires:  time.Now().Add(time.Hour * 24 * 7),
-		HttpOnly: true,
-	})
-	http.SetCookie(w, &http.Cookie{
-		Name:  "provider_token",
-		Value: providerToken,
-		Path:  "/",
-		// Domain:   domain,
-		Expires:  time.Now().Add(time.Hour * 24 * 7),
-		HttpOnly: true,
-	})
-
-	http.Redirect(w, r, os.Getenv("AUTH_WEBSITE"), http.StatusPermanentRedirect)
 }
