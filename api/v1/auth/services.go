@@ -39,7 +39,7 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		providers.NewRoblox().CallbackHandler(w, r)
 
 	case "lastfm":
-		providers.NewLastFm().CallbackHandler(w, r)
+		providers.NewLastFm(w, r).CallbackHandler(w, r)
 
 	default:
 		w.Write([]byte("Unknown provider"))
@@ -58,7 +58,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		providers.NewRoblox().LoginHandler(w, r)
 
 	case "lastfm":
-		providers.NewLastFm().LoginHandler(w, r)
+		providers.NewLastFm(w, r).LoginHandler(w, r)
 
 	default:
 		w.Write([]byte("Unknown provider"))

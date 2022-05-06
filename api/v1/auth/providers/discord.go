@@ -3,7 +3,6 @@ package providers
 import (
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -58,19 +57,19 @@ func NewDiscord() *DiscordProvider {
 				return nil, nil
 			},
 			callbackHandler: func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
-				var accessToken string
-				var providerToken string
+				var accessToken string = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNjUxOTMyNzQ2LCJzdWIiOiI3NTQ4NmU4NS1mZmFlLTQwNzAtODhhYi1kNjFiYzMyNWUyMmUiLCJlbWFpbCI6Im1lQGFtdXNlZGdyYXBlLnh5eiIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZGlzY29yZCIsInByb3ZpZGVycyI6WyJkaXNjb3JkIl19LCJ1c2VyX21ldGFkYXRhIjp7ImF2YXRhcl91cmwiOiJodHRwczovL2Nkbi5kaXNjb3JkYXBwLmNvbS9hdmF0YXJzLzQwMTc5MjA1ODk3MDYwMzUzOS9hX2E0NzY4YTBlMmZmNDQ2YzgzNzZiZTQxYjBiMTQyYWM3LmdpZiIsImVtYWlsIjoibWVAYW11c2VkZ3JhcGUueHl6IiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZ1bGxfbmFtZSI6IkFtdXNlZEdyYXBlIiwiaXNzIjoiaHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkiLCJuYW1lIjoiQW11c2VkR3JhcGUjMDAwMSIsInBpY3R1cmUiOiJodHRwczovL2Nkbi5kaXNjb3JkYXBwLmNvbS9hdmF0YXJzLzQwMTc5MjA1ODk3MDYwMzUzOS9hX2E0NzY4YTBlMmZmNDQ2YzgzNzZiZTQxYjBiMTQyYWM3LmdpZiIsInByb3ZpZGVyX2lkIjoiNDAxNzkyMDU4OTcwNjAzNTM5Iiwic3ViIjoiNDAxNzkyMDU4OTcwNjAzNTM5In0sInJvbGUiOiJhdXRoZW50aWNhdGVkIn0.ib1G3_70IGSdjjdWabVd4Oz-rIsfk6wL9XaEBMLpHrw"
+				var providerToken string = "4qZ4uZWGRWvGQJ4DvRkLP2iXUgQhS9"
 
-				v, err := url.ParseQuery(r.URL.Fragment)
+				// v, err := url.ParseQuery(r.URL.Fragment)
 
-				if err != nil {
-					log.Println(err)
-					w.Write([]byte("Error parsing query"))
-					return nil, err
-				}
+				// if err != nil {
+				// 	log.Println(err)
+				// 	w.Write([]byte("Error parsing query"))
+				// 	return nil, err
+				// }
 
-				accessToken = v.Get("access_token")
-				providerToken = v.Get("provider_token")
+				// accessToken = v.Get("access_token")
+				// providerToken = v.Get("provider_token")
 
 				var domain string
 

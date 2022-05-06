@@ -16,9 +16,5 @@ type Providers struct {
 func New() *Providers {
 	p := &Providers{}
 
-	p.roblox = NewRoblox()
-	p.lastfm = NewLastFm()
-	p.discord = NewDiscord()
-
 	return p
 }

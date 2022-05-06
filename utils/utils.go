@@ -2,8 +2,10 @@ package utils
 
 import (
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gorilla/handlers"
 )
@@ -47,4 +49,30 @@ func AuthMiddleware(h http.Handler) http.Handler {
 			w.Write(data)
 		}
 	})
+}
+
+type String string
+
+func (s String) Format(data map[string]interface{}) (out string, err error) {
+	t := template.Must(template.New("").Parse(string(s)))
+	builder := &strings.Builder{}
+	if err = t.Execute(builder, data); err != nil {
+		return
+	}
+	out = builder.String()
+	return
+}
+
+func GetCallbackURL(provider string) string {
+	callbackUrl := os.Getenv("CALLBACK_URL")
+
+	s, err := String(callbackUrl).Format(map[string]interface{}{
+		"Provider": provider,
+	})
+
+	if err != nil {
+		return ""
+	}
+
+	return s
 }
