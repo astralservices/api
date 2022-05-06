@@ -5,7 +5,9 @@ import (
 	"net/http"
 
 	"github.com/astralservices/api/api/v1/auth/providers"
+	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
+	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 )
 
@@ -82,4 +84,37 @@ func ProviderHandler(w http.ResponseWriter, r *http.Request) {
 
 		w.Write(data)
 	}
+}
+
+func ProvidersHandler(w http.ResponseWriter, r *http.Request) {
+	profile := context.Get(r, "profile").(utils.IProfile)
+
+	var providers []utils.IProvider
+
+	database := db.New()
+
+	err := database.DB.From("providers").Select("*").Eq("id", profile.ID).Execute(&providers)
+
+	if err != nil {
+		data, err := json.Marshal(map[string]string{
+			"error": "Profile providers not found!",
+		})
+
+		if err != nil {
+			w.Write([]byte("Error"))
+			return
+		}
+
+		w.Write(data)
+		return
+	}
+
+	res, err := json.Marshal(utils.Response[[]utils.IProvider]{
+		Result: providers,
+		Code:   http.StatusOK,
+	})
+
+	w.Write(res)
+
+	return
 }

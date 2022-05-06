@@ -16,6 +16,8 @@ func New(ref *mux.Router) *mux.Router {
 
 	gated := r.PathPrefix("/providers").Subrouter()
 	gated.Use(utils.AuthMiddleware)
+	gated.Use(utils.ProfileMiddleware)
+	gated.HandleFunc("/", ProvidersHandler)
 	gated.HandleFunc("/{provider}", ProviderHandler).Methods("GET", "POST", "OPTIONS")
 
 	return r
