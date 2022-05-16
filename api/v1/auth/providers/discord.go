@@ -57,7 +57,7 @@ func NewDiscord() *DiscordProvider {
 				return nil, nil
 			},
 			callbackHandler: func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
-				var accessToken string = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNjUxOTMyNzQ2LCJzdWIiOiI3NTQ4NmU4NS1mZmFlLTQwNzAtODhhYi1kNjFiYzMyNWUyMmUiLCJlbWFpbCI6Im1lQGFtdXNlZGdyYXBlLnh5eiIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZGlzY29yZCIsInByb3ZpZGVycyI6WyJkaXNjb3JkIl19LCJ1c2VyX21ldGFkYXRhIjp7ImF2YXRhcl91cmwiOiJodHRwczovL2Nkbi5kaXNjb3JkYXBwLmNvbS9hdmF0YXJzLzQwMTc5MjA1ODk3MDYwMzUzOS9hX2E0NzY4YTBlMmZmNDQ2YzgzNzZiZTQxYjBiMTQyYWM3LmdpZiIsImVtYWlsIjoibWVAYW11c2VkZ3JhcGUueHl6IiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZ1bGxfbmFtZSI6IkFtdXNlZEdyYXBlIiwiaXNzIjoiaHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkiLCJuYW1lIjoiQW11c2VkR3JhcGUjMDAwMSIsInBpY3R1cmUiOiJodHRwczovL2Nkbi5kaXNjb3JkYXBwLmNvbS9hdmF0YXJzLzQwMTc5MjA1ODk3MDYwMzUzOS9hX2E0NzY4YTBlMmZmNDQ2YzgzNzZiZTQxYjBiMTQyYWM3LmdpZiIsInByb3ZpZGVyX2lkIjoiNDAxNzkyMDU4OTcwNjAzNTM5Iiwic3ViIjoiNDAxNzkyMDU4OTcwNjAzNTM5In0sInJvbGUiOiJhdXRoZW50aWNhdGVkIn0.ib1G3_70IGSdjjdWabVd4Oz-rIsfk6wL9XaEBMLpHrw"
+				var accessToken string = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNjUyNzkzOTIwLCJzdWIiOiI3NTQ4NmU4NS1mZmFlLTQwNzAtODhhYi1kNjFiYzMyNWUyMmUiLCJlbWFpbCI6Im1lQGFtdXNlZGdyYXBlLnh5eiIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZGlzY29yZCIsInByb3ZpZGVycyI6WyJkaXNjb3JkIl19LCJ1c2VyX21ldGFkYXRhIjp7ImF2YXRhcl91cmwiOiJodHRwczovL2Nkbi5kaXNjb3JkYXBwLmNvbS9hdmF0YXJzLzQwMTc5MjA1ODk3MDYwMzUzOS9hX2E0NzY4YTBlMmZmNDQ2YzgzNzZiZTQxYjBiMTQyYWM3LmdpZiIsImVtYWlsIjoibWVAYW11c2VkZ3JhcGUueHl6IiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZ1bGxfbmFtZSI6IkFtdXNlZEdyYXBlIiwiaXNzIjoiaHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkiLCJuYW1lIjoiQW11c2VkR3JhcGUjMDAwMSIsInBpY3R1cmUiOiJodHRwczovL2Nkbi5kaXNjb3JkYXBwLmNvbS9hdmF0YXJzLzQwMTc5MjA1ODk3MDYwMzUzOS9hX2E0NzY4YTBlMmZmNDQ2YzgzNzZiZTQxYjBiMTQyYWM3LmdpZiIsInByb3ZpZGVyX2lkIjoiNDAxNzkyMDU4OTcwNjAzNTM5Iiwic3ViIjoiNDAxNzkyMDU4OTcwNjAzNTM5In0sInJvbGUiOiJhdXRoZW50aWNhdGVkIn0.dJe4ZakDc6wrS78GFk-uoUn36MxDFRjrB0u26nuwujM"
 				var providerToken string = "4qZ4uZWGRWvGQJ4DvRkLP2iXUgQhS9"
 
 				// v, err := url.ParseQuery(r.URL.Fragment)
@@ -113,6 +113,27 @@ func NewDiscord() *DiscordProvider {
 
 				return nil, nil
 			},
+			logoutHandler: func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+				http.SetCookie(w, &http.Cookie{
+					Name:     "access_token",
+					Value:    "",
+					Path:     "/",
+					MaxAge:   -1,
+					HttpOnly: true,
+				})
+
+				http.SetCookie(w, &http.Cookie{
+					Name:     "provider_token",
+					Value:    "",
+					Path:     "/",
+					MaxAge:   -1,
+					HttpOnly: true,
+				})
+
+				http.Redirect(w, r, os.Getenv("AUTH_WEBSITE"), http.StatusFound)
+
+				return nil, nil
+			},
 		},
 	}
 }
@@ -123,4 +144,8 @@ func (p *DiscordProvider) LoginHandler(w http.ResponseWriter, r *http.Request) (
 
 func (p *DiscordProvider) CallbackHandler(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	return p.callbackHandler(w, r)
+}
+
+func (p *DiscordProvider) LogoutHandler(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	return p.logoutHandler(w, r)
 }

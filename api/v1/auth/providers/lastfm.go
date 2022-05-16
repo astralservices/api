@@ -1,7 +1,6 @@
 package providers
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -102,26 +101,23 @@ func NewLastFm(w http.ResponseWriter, r *http.Request) *LastFmProvider {
 					}).Execute(&provider)
 				}
 
-				res, err := json.Marshal(utils.Response[struct {
-					Token    string `json:"token"`
-					Name     string `json:"name"`
-					Provider any    `json:"provider"`
-				}]{
-					Result: struct {
-						Token    string `json:"token"`
-						Name     string `json:"name"`
-						Provider any    `json:"provider"`
-					}{Token: userToken, Name: userName, Provider: provider[0]},
-					Code: http.StatusOK,
-				})
+				http.Redirect(w, r, os.Getenv("AUTH_WEBSITE"), http.StatusFound)
+
+				return nil, nil
+			},
+			logoutHandler: func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+				var res any
+
+				err := database.DB.From("providers").Delete().Eq("type", "lastfm").Eq("user", user.ID).Execute(&res)
 
 				if err != nil {
+					log.Println(err)
 					return nil, err
 				}
 
-				w.Write(res)
+				http.Redirect(w, r, os.Getenv("AUTH_WEBSITE"), http.StatusFound)
 
-				return res, nil
+				return nil, nil
 			},
 		},
 	}
@@ -133,4 +129,8 @@ func (p *LastFmProvider) LoginHandler(w http.ResponseWriter, r *http.Request) ([
 
 func (p *LastFmProvider) CallbackHandler(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	return p.callbackHandler(w, r)
+}
+
+func (p *LastFmProvider) LogoutHandler(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	return p.logoutHandler(w, r)
 }

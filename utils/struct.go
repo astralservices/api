@@ -1,6 +1,8 @@
 package utils
 
-import "time"
+import (
+	"time"
+)
 
 type Response[T any] struct {
 	Result T      `json:"result"`
@@ -59,13 +61,59 @@ type IWorkspace struct {
 }
 
 type IProvider struct {
-	ID                  string                 `json:"id"`
+	ID                  *string                `json:"id,omitempty"`
 	CreatedAt           time.Time              `json:"created_at"`
 	User                string                 `json:"user"`
 	Type                string                 `json:"type"`
 	ProviderID          string                 `json:"provider_id"`
 	ProviderAccessToken string                 `json:"provider_access_token"`
 	ProviderData        map[string]interface{} `json:"provider_data"`
-	ProviderExpiresAt   time.Time              `json:"provider_expires_at"`
-	DiscordID           string                 `json:"discord_id"`
+	ProviderExpiresAt   *time.Time             `json:"provider_expires_at,omitempty"`
+	DiscordID           *string                `json:"discord_id,omitempty"`
+}
+
+type IBlacklist struct {
+	ID             int8        `json:"id"`
+	CreatedAt      time.Time   `json:"created_at"`
+	Moderator      string      `json:"moderator"`
+	User           string      `json:"user"`
+	DiscordID      string      `json:"discord_id"`
+	Reason         string      `json:"reason"`
+	Expires        bool        `json:"expires"`
+	Expiry         time.Time   `json:"expiry"`
+	Flags          interface{} `json:"flags"`
+	FactorMatching []string    `json:"factor_matching"`
+	Notes          string      `json:"notes"`
+}
+
+type IStatistic struct {
+	ID        int     `json:"id"`
+	Key       string  `json:"key"`
+	Value     float32 `json:"value"`
+	UpdatedAt string  `json:"updated_at"`
+}
+
+type IRegion struct {
+	ID         string  `json:"id"`
+	Flag       string  `json:"flag"`
+	IP         string  `json:"ip"`
+	City       string  `json:"city"`
+	Country    string  `json:"country"`
+	Region     string  `json:"region"`
+	PrettyName string  `json:"prettyName"`
+	Lat        float64 `json:"lat"`
+	Long       float64 `json:"long"`
+	MaxBots    int     `json:"maxBots"`
+	Status     string  `json:"status"`
+}
+
+type ITeamMember struct {
+	ID        int    `json:"id"`
+	CreatedAt string `json:"created_at"`
+	User      any    `json:"user"`
+	Name      string `json:"name"`
+	Pronouns  string `json:"pronouns"`
+	Location  string `json:"location"`
+	About     string `json:"about"`
+	Role      string `json:"role"`
 }
