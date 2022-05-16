@@ -50,8 +50,13 @@ func main() {
 	r.HandleFunc("/", IndexHandler)
 	r.Handle("/api/v1", v1.New(r))
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
+
 	srv := &http.Server{
-		Addr: "0.0.0.0:3000",
+		Addr: "0.0.0.0:" + port,
 		// Good practice to set timeouts to avoid Slowloris attacks.
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
@@ -61,7 +66,7 @@ func main() {
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
-		log.Infoln("Starting server on port 3000")
+		log.Infoln("Starting server on port " + port)
 		if err := srv.ListenAndServe(); err != nil {
 			log.Fatalln(err)
 		}
