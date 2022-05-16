@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +13,7 @@ import (
 	"github.com/astralservices/api/utils"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	log "github.com/sirupsen/logrus"
 )
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
@@ -41,6 +41,7 @@ func main() {
 	flag.Parse()
 
 	r := mux.NewRouter()
+	r.Use(utils.LoggingMiddleware)
 	r.Use(utils.CORSMiddleware)
 	// middleware for setting every response header content-type to application/json
 	r.Use(utils.JSONMiddleware)
@@ -60,9 +61,9 @@ func main() {
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
-		log.Println("Starting server on port 3000")
+		log.Infoln("Starting server on port 3000")
 		if err := srv.ListenAndServe(); err != nil {
-			log.Println(err)
+			log.Fatalln(err)
 		}
 	}()
 

@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/context"
 	"github.com/gorilla/handlers"
 	"github.com/nedpals/supabase-go"
+	log "github.com/sirupsen/logrus"
 )
 
 func CORSMiddleware(h http.Handler) http.Handler {
@@ -129,6 +130,25 @@ func ProfileMiddleware(h http.Handler) http.Handler {
 		context.Set(r, "profile", profile[0])
 
 		h.ServeHTTP(w, r)
+	})
+}
+
+func LoggingMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		uri := r.RequestURI
+		method := r.Method
+		h.ServeHTTP(w, r) // serve the original request
+
+		duration := time.Since(start)
+
+		// log request details
+		log.WithFields(log.Fields{
+			"uri":      uri,
+			"method":   method,
+			"duration": duration,
+		}).Info("Request")
 	})
 }
 
