@@ -1,15 +1,46 @@
-FROM golang:1.18-alpine
+##### Stage 1 #####
 
+### Use golang:1.15 as base image for building the application
+FROM golang:1.18 as builder
+
+### Create new directly and set it as working directory
+RUN mkdir -p /app
 WORKDIR /app
 
-COPY go.mod ./
-COPY go.sum ./
+### Copy Go application dependency files
+COPY go.mod .
+COPY go.sum .
+
+### Setting a proxy for downloading modules
+ENV GOPROXY https://proxy.golang.org,direct
+
+### Download Go application module dependencies
 RUN go mod download
 
-COPY . ./
+### Copy actual source code for building the application
+COPY . .
 
-RUN go build -o /astral-api
+### CGO has to be disabled cross platform builds
+### Otherwise the application won't be able to start
+ENV CGO_ENABLED=0
 
-EXPOSE 3000
+### Build the Go app for a linux OS
+### 'scratch' and 'alpine' both are Linux distributions
+RUN GOOS=linux go build ./main.go
 
-CMD [ "/astral-api" ]
+##### Stage 2 #####
+
+### Define the running image
+FROM scratch
+
+### Alternatively to 'FROM scratch', use 'alpine':
+# FROM alpine:3.13.1
+
+### Set working directory
+WORKDIR /app
+
+### Copy built binary application from 'builder' image
+COPY --from=builder /app/main .
+
+### Run the binary application
+CMD ["/app/main"]
