@@ -1,12 +1,13 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
-	"html/template"
 	"math/rand"
 	"net/http"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 
 	db "github.com/astralservices/api/supabase"
@@ -167,15 +168,23 @@ func (s String) Format(data map[string]interface{}) (out string, err error) {
 func GetCallbackURL(provider string) string {
 	callbackUrl := os.Getenv("CALLBACK_URL")
 
-	s, err := String(callbackUrl).Format(map[string]interface{}{
-		"Provider": provider,
-	})
-
+	tmpl, err := template.New("callbackUrl").Delims("[[", "]]").Parse(callbackUrl)
 	if err != nil {
-		return ""
+		log.Fatal(err)
 	}
 
-	return s
+	data := map[string]interface{}{
+		"Provider": provider,
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, data)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return buf.String()
 }
 
 func RandomWord() string {
