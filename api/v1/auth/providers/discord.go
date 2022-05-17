@@ -8,6 +8,7 @@ import (
 	"time"
 
 	db "github.com/astralservices/api/supabase"
+	"github.com/astralservices/api/utils"
 	sb "github.com/nedpals/supabase-go"
 )
 
@@ -21,12 +22,8 @@ func NewDiscord() *DiscordProvider {
 			loginHandler: func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 				supabase := db.New()
 				var redirectTo string
-				var redirect string
-				if r.TLS != nil {
-					redirect = "https://" + r.Host + "/api/v1/auth/callback/discord"
-				} else {
-					redirect = "http://" + r.Host + "/api/v1/auth/callback/discord"
-				}
+				
+				redirect := utils.GetCallbackURL("discord")
 
 				// get the redirect url from the form data
 				redirectTo = r.FormValue("redirect")
