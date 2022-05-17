@@ -110,10 +110,14 @@ type IRegion struct {
 type ITeamMember struct {
 	ID        int    `json:"id"`
 	CreatedAt string `json:"created_at"`
-	User      any    `json:"user"`
+	User      ITeamMemberUser   `json:"user"`
 	Name      string `json:"name"`
 	Pronouns  string `json:"pronouns"`
 	Location  string `json:"location"`
 	About     string `json:"about"`
 	Role      string `json:"role"`
+}
+
+type ITeamMemberUser struct {
+	IdentityData IIdentityData `json:"identity_data"`
 }

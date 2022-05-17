@@ -4,16 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
 	v1 "github.com/astralservices/api/api/v1"
+	_ "github.com/astralservices/api/docs"
 	"github.com/astralservices/api/utils"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
@@ -34,8 +37,23 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// @title Astral API
+// @version 1.0.0
+// @description The official API for Astral Services.
+// @termsOfService https://docs.astralapp.io/legal/terms
+
+// @contact.name DevOps Team
+// @contact.url https://astralapp.io
+// @contact.email devops@astralapp.io
+
+// @license.name MPL-2.0
+// @license.url https://opensource.org/licenses/MPL-2.0
+
+// @host localhost:3000
+// @BasePath /api/v1
 func main() {
 	godotenv.Load(".env.local")
+	rand.Seed(time.Now().UnixNano())
 	var wait time.Duration
 	flag.DurationVar(&wait, "graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish - e.g. 15s or 1m")
 	flag.Parse()
@@ -43,11 +61,13 @@ func main() {
 	r := mux.NewRouter()
 	r.Use(utils.LoggingMiddleware)
 	r.Use(utils.CORSMiddleware)
-	// middleware for setting every response header content-type to application/json
 	r.Use(utils.JSONMiddleware)
 	r.StrictSlash(true)
-	// Add your routes as needed
+
 	r.HandleFunc("/", IndexHandler)
+
+	r.PathPrefix("/docs/").Handler(httpSwagger.WrapHandler)
+	
 	r.Handle("/api/v1", v1.New(r))
 
 	port := os.Getenv("PORT")

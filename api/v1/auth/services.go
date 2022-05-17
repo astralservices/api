@@ -30,6 +30,17 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// Provider Callback
+// @Summary Callback for provider
+// @Description 
+// @ID provider-callback
+// @Tags Authentication
+// @Accept  json
+// @Produce  json
+// @Param provider path string true "Provider"
+// @Success 301
+// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
+// @Router /auth/callback/{provider} [get]
 func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	provider := vars["provider"]
@@ -49,6 +60,17 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Provider Login
+// @Summary Login to provider
+// @Description 
+// @ID provider-login
+// @Tags Authentication
+// @Accept  json
+// @Produce  json
+// @Param provider path string true "Provider"
+// @Success 301
+// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
+// @Router /auth/login/{provider} [post]
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	provider := vars["provider"]
@@ -68,6 +90,17 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Provider Logout
+// @Summary Logout of provider
+// @Description 
+// @ID provider-logout
+// @Tags Authentication
+// @Accept  json
+// @Produce  json
+// @Param provider path string true "Provider"
+// @Success 301
+// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
+// @Router /auth/logout/{provider} [post]
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	provider := vars["provider"]
@@ -84,6 +117,18 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Provider Information
+// @Summary Get provider information
+// @Description 
+// @ID provider-info
+// @Tags Authentication
+// @Accept  json
+// @Produce  json
+// @securityDefinitions.apikey ApiKeyAuth
+// @Param provider path string true "Provider"
+// @Success 200 {object} utils.IProvider "OK"
+// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
+// @Router /auth/providers/{provider} [get]
 func ProviderHandler(w http.ResponseWriter, r *http.Request) {
 	profile := context.Get(r, "profile").(utils.IProfile)
 
@@ -144,6 +189,17 @@ func ProviderHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// Providers Information
+// @Summary Get all provider information
+// @Description 
+// @ID providers-info
+// @Tags Authentication
+// @Accept  json
+// @Produce  json
+// @securityDefinitions.apikey ApiKeyAuth
+// @Success 200 {array} utils.IProvider "OK"
+// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
+// @Router /auth/providers [get]
 func ProvidersHandler(w http.ResponseWriter, r *http.Request) {
 	profile := context.Get(r, "profile").(utils.IProfile)
 
@@ -187,6 +243,17 @@ type StatusResponse struct {
 	Blacklist     *utils.IBlacklist `json:"blacklist,omitempty"`
 }
 
+// User Status
+// @Summary Get the authenticated user's status
+// @Description 
+// @ID user-status
+// @Tags User
+// @Accept  json
+// @Produce  json
+// @securityDefinitions.apikey ApiKeyAuth
+// @Success 200 {object} StatusResponse "OK"
+// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
+// @Router /auth/status [get]
 func StatusHandler(w http.ResponseWriter, r *http.Request) {
 	user := context.Get(r, "user").(*supabase.User)
 	var blacklist []utils.IBlacklist
