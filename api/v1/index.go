@@ -29,14 +29,16 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-// swagger:route GET /api/v1/stats Stats get-stats
-//
-// Gets the various statistics of Astral Services.
-//
-// responses:
-//   200: APIResponse
-//   404: ErrorResponse
-//   500: ErrorResponse
+// Statistics
+// @Summary Gets statistics for Astral Services
+// @Description 
+// @ID stats
+// @Tags Public
+// @Accept  json
+// @Produce  json
+// @Success 200 {array} utils.IStatistic "OK"
+// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
+// @Router /stats [get]
 func StatsHandler(w http.ResponseWriter, r *http.Request) {
 	var stats []utils.IStatistic
 
@@ -73,6 +75,16 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// Regions
+// @Summary Get Astral's regions
+// @Description 
+// @ID regions
+// @Tags Public
+// @Accept  json
+// @Produce  json
+// @Success 200 {array} utils.IRegion "OK"
+// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
+// @Router /regions [get]
 func RegionsHandler(w http.ResponseWriter, r *http.Request) {
 	var regions []utils.IRegion
 
@@ -117,6 +129,16 @@ func RegionsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// Team
+// @Summary Get Astral's team members
+// @Description 
+// @ID team
+// @Tags Public
+// @Accept  json
+// @Produce  json
+// @Success 200 {array} utils.ITeamMember "OK"
+// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
+// @Router /team [get]
 func TeamHandler(w http.ResponseWriter, r *http.Request) {
 	var teams []utils.ITeamMember
 

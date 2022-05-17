@@ -369,7 +369,9 @@ func RandomWord() string {
 		"zebra",
 	}
 
-	rand.Seed(time.Now().UTC().UnixNano())
+	return words[RandInt(0, len(words)-1)]
+}
 
-	return words[rand.Intn(len(words))]
+func RandInt(min int, max int) int {
+    return min + rand.Intn(max-min)
 }

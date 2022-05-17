@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -48,10 +49,11 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 // @license.name MPL-2.0
 // @license.url https://opensource.org/licenses/MPL-2.0
 
-// @host api.astralapp.io
+// @host localhost:3000
 // @BasePath /api/v1
 func main() {
 	godotenv.Load(".env.local")
+	rand.Seed(time.Now().UnixNano())
 	var wait time.Duration
 	flag.DurationVar(&wait, "graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish - e.g. 15s or 1m")
 	flag.Parse()
@@ -63,8 +65,8 @@ func main() {
 	r.StrictSlash(true)
 
 	r.HandleFunc("/", IndexHandler)
-	
-	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
+
+	r.PathPrefix("/docs/").Handler(httpSwagger.WrapHandler)
 	
 	r.Handle("/api/v1", v1.New(r))
 

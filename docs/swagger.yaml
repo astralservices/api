@@ -1,5 +1,150 @@
 basePath: /api/v1
-host: api.astralapp.io
+definitions:
+  auth.StatusResponse:
+    properties:
+      authenticated:
+        type: boolean
+      blacklist:
+        $ref: '#/definitions/utils.IBlacklist'
+    type: object
+  utils.DocsAPIError:
+    properties:
+      code:
+        type: integer
+      error:
+        type: string
+      result: {}
+    type: object
+  utils.IBlacklist:
+    properties:
+      created_at:
+        type: string
+      discord_id:
+        type: string
+      expires:
+        type: boolean
+      expiry:
+        type: string
+      factor_matching:
+        items:
+          type: string
+        type: array
+      flags: {}
+      id:
+        type: integer
+      moderator:
+        type: string
+      notes:
+        type: string
+      reason:
+        type: string
+      user:
+        type: string
+    type: object
+  utils.IIdentityData:
+    properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
+      email_verified:
+        type: boolean
+      full_name:
+        type: string
+      iss:
+        type: string
+      name:
+        type: string
+      picture:
+        type: string
+      provider_id:
+        type: string
+      sub:
+        type: string
+    type: object
+  utils.IProvider:
+    properties:
+      created_at:
+        type: string
+      discord_id:
+        type: string
+      id:
+        type: string
+      provider_access_token:
+        type: string
+      provider_data:
+        additionalProperties: true
+        type: object
+      provider_expires_at:
+        type: string
+      provider_id:
+        type: string
+      type:
+        type: string
+      user:
+        type: string
+    type: object
+  utils.IRegion:
+    properties:
+      city:
+        type: string
+      country:
+        type: string
+      flag:
+        type: string
+      id:
+        type: string
+      ip:
+        type: string
+      lat:
+        type: number
+      long:
+        type: number
+      maxBots:
+        type: integer
+      prettyName:
+        type: string
+      region:
+        type: string
+      status:
+        type: string
+    type: object
+  utils.IStatistic:
+    properties:
+      id:
+        type: integer
+      key:
+        type: string
+      updated_at:
+        type: string
+      value:
+        type: number
+    type: object
+  utils.ITeamMember:
+    properties:
+      about:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      location:
+        type: string
+      name:
+        type: string
+      pronouns:
+        type: string
+      role:
+        type: string
+      user:
+        $ref: '#/definitions/utils.ITeamMemberUser'
+    type: object
+  utils.ITeamMemberUser:
+    properties:
+      identity_data:
+        $ref: '#/definitions/utils.IIdentityData'
+    type: object
+host: localhost:3000
 info:
   contact:
     email: devops@astralapp.io
@@ -12,5 +157,202 @@ info:
   termsOfService: https://docs.astralapp.io/legal/terms
   title: Astral API
   version: 1.0.0
-paths: {}
+paths:
+  /auth/callback/{provider}:
+    get:
+      consumes:
+      - application/json
+      operationId: provider-callback
+      parameters:
+      - description: Provider
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "301":
+          description: ""
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.DocsAPIError'
+      summary: Callback for provider
+      tags:
+      - Authentication
+  /auth/login/{provider}:
+    post:
+      consumes:
+      - application/json
+      operationId: provider-login
+      parameters:
+      - description: Provider
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "301":
+          description: ""
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.DocsAPIError'
+      summary: Login to provider
+      tags:
+      - Authentication
+  /auth/logout/{provider}:
+    post:
+      consumes:
+      - application/json
+      operationId: provider-logout
+      parameters:
+      - description: Provider
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "301":
+          description: ""
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.DocsAPIError'
+      summary: Logout of provider
+      tags:
+      - Authentication
+  /auth/providers:
+    get:
+      consumes:
+      - application/json
+      operationId: providers-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/utils.IProvider'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.DocsAPIError'
+      summary: Get all provider information
+      tags:
+      - Authentication
+  /auth/providers/{provider}:
+    get:
+      consumes:
+      - application/json
+      operationId: provider-info
+      parameters:
+      - description: Provider
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.IProvider'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.DocsAPIError'
+      summary: Get provider information
+      tags:
+      - Authentication
+  /auth/status:
+    get:
+      consumes:
+      - application/json
+      operationId: user-status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.StatusResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.DocsAPIError'
+      summary: Get the authenticated user's status
+      tags:
+      - User
+  /regions:
+    get:
+      consumes:
+      - application/json
+      operationId: regions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/utils.IRegion'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.DocsAPIError'
+      summary: Get Astral's regions
+      tags:
+      - Public
+  /stats:
+    get:
+      consumes:
+      - application/json
+      operationId: stats
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/utils.IStatistic'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.DocsAPIError'
+      summary: Gets statistics for Astral Services
+      tags:
+      - Public
+  /team:
+    get:
+      consumes:
+      - application/json
+      operationId: team
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/utils.ITeamMember'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.DocsAPIError'
+      summary: Get Astral's team members
+      tags:
+      - Public
 swagger: "2.0"
