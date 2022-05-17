@@ -29,6 +29,14 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// swagger:route GET /api/v1/stats Stats get-stats
+//
+// Gets the various statistics of Astral Services.
+//
+// responses:
+//   200: APIResponse
+//   404: ErrorResponse
+//   500: ErrorResponse
 func StatsHandler(w http.ResponseWriter, r *http.Request) {
 	var stats []utils.IStatistic
 

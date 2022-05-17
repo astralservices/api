@@ -1,0 +1,16 @@
+basePath: /api/v1
+host: api.astralapp.io
+info:
+  contact:
+    email: devops@astralapp.io
+    name: DevOps Team
+    url: https://astralapp.io
+  description: The official API for Astral Services.
+  license:
+    name: MPL-2.0
+    url: https://opensource.org/licenses/MPL-2.0
+  termsOfService: https://docs.astralapp.io/legal/terms
+  title: Astral API
+  version: 1.0.0
+paths: {}
+swagger: "2.0"

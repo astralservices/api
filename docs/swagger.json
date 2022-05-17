@@ -1,0 +1,21 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "The official API for Astral Services.",
+        "title": "Astral API",
+        "termsOfService": "https://docs.astralapp.io/legal/terms",
+        "contact": {
+            "name": "DevOps Team",
+            "url": "https://astralapp.io",
+            "email": "devops@astralapp.io"
+        },
+        "license": {
+            "name": "MPL-2.0",
+            "url": "https://opensource.org/licenses/MPL-2.0"
+        },
+        "version": "1.0.0"
+    },
+    "host": "api.astralapp.io",
+    "basePath": "/api/v1",
+    "paths": {}
+}
