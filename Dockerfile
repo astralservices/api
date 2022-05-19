@@ -24,6 +24,10 @@ COPY . .
 ### Otherwise the application won't be able to start
 ENV CGO_ENABLED=0
 
+### Build the Swagger UI docs
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+RUN swag init
+
 ### Build the Go app for a linux OS
 ### 'scratch' and 'alpine' both are Linux distributions
 RUN GOOS=linux go build ./main.go

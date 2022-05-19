@@ -49,7 +49,7 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 // @license.name MPL-2.0
 // @license.url https://opensource.org/licenses/MPL-2.0
 
-// @host localhost:3000
+// @host api-dev.internal.astralapp.io
 // @BasePath /api/v1
 func main() {
 	godotenv.Load(".env.local")
