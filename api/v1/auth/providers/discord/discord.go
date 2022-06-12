@@ -1,6 +1,7 @@
 package discord
 
 import (
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -55,6 +56,26 @@ func (p DiscordProvider) CreateUser() error {
 		})
 	}
 
+	log.Println("making profile", out)
+
+	var profile []utils.IProfile
+
+	profileErr := database.DB.From("profiles").Insert(map[string]interface{}{
+		"id": out[0].ID,
+		"email": &user.Email,
+		"preferred_name": out[0].ProviderData["username"],
+		"identity_data":  out[0].ProviderData,
+		"discord_id":    out[0].ProviderID,
+	}).Execute(&profile)
+
+	if profileErr != nil {
+		return ctx.Status(500).JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusInternalServerError,
+			Error:  profileErr.Error(),
+		})
+	}
+
 	if redirect != "" {
 		TokenString, _ := utils.CreateToken(user.UserID, out[0])
 
@@ -98,6 +119,23 @@ func (p DiscordProvider) UpdateUser() error {
 			Result: nil,
 			Code:   http.StatusInternalServerError,
 			Error:  insertErr.Error(),
+		})
+	}
+
+	var profile []utils.IProfile
+
+	log.Println("making profile", out)
+
+	profileErr := database.DB.From("profiles").Update(map[string]interface{}{
+		"preferred_name": out[0].ProviderData["username"],
+		"identity_data":  out[0].ProviderData,
+	}).Eq("id", *out[0].ID).Execute(&profile)
+
+	if profileErr != nil {
+		return ctx.Status(500).JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusInternalServerError,
+			Error:  profileErr.Error(),
 		})
 	}
 

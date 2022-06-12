@@ -36,8 +36,11 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 
 	discordUser := ctx.Locals("user")
 
+	log.Print(discordUser)
+
 	if discordUser != nil {
 		du := discordUser.(utils.IProvider)
+		log.Println(du)
 		err = database.DB.From("providers").Select("*").Eq("provider_id", user.UserID).Eq("type", user.Provider).Eq("user", *du.ID).Execute(&providers)
 	} else {
 		err = database.DB.From("providers").Select("*").Eq("provider_id", user.UserID).Eq("type", user.Provider).Execute(&providers)
