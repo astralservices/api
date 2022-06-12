@@ -1,139 +1,200 @@
 package auth
 
 import (
-	"encoding/json"
+	"log"
 	"net/http"
+	"os"
 
-	"github.com/astralservices/api/api/v1/auth/providers"
+	"github.com/astralservices/api/api/v1/auth/providers/discord"
+	"github.com/astralservices/api/api/v1/auth/providers/lastfm"
 	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
-	"github.com/gorilla/context"
-	"github.com/gorilla/mux"
-	"github.com/nedpals/supabase-go"
+	"github.com/gofiber/fiber/v2"
+	"github.com/shareed2k/goth_fiber"
 )
 
-func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := json.Marshal(utils.Response[struct {
-		Message string `json:"message"`
-	}]{
-		Result: struct {
-			Message string "json:\"message\""
-		}{Message: "API is running!"},
-		Code: http.StatusOK,
-	})
+func CallbackHandler(ctx *fiber.Ctx) error {
+	authErr := ctx.Query("error")
+
+	if authErr != "" {
+		return ctx.Status(400).JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusBadRequest,
+			Error:  authErr,
+		})
+	}
+
+	user, err := goth_fiber.CompleteUserAuth(ctx)
 
 	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
+		log.Fatal(err)
 	}
 
-	w.Write(data)
+	database := db.New()
+
+	var providers []utils.IProvider
+
+	discordUser := ctx.Locals("user")
+
+	if discordUser != nil {
+		du := discordUser.(utils.IProvider)
+		err = database.DB.From("providers").Select("*").Eq("provider_id", user.UserID).Eq("type", user.Provider).Eq("user", *du.ID).Execute(&providers)
+	} else {
+		err = database.DB.From("providers").Select("*").Eq("provider_id", user.UserID).Eq("type", user.Provider).Execute(&providers)
+	}
+
+	if err != nil {
+		return ctx.Status(500).JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusInternalServerError,
+			Error:  err.Error(),
+		})
+	}
+
+	redirect := ctx.Cookies("redirect")
+
+	var domain string
+
+	if os.Getenv("ENV") == "development" {
+		domain = "localhost"
+	} else {
+		domain = ctx.BaseURL()
+	}
+
+	if user.Provider != "discord" && discordUser == nil {
+		return ctx.Status(401).JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusUnauthorized,
+			Error:  "You must be logged in with a Discord account to use this endpoint.",
+		})
+	}
+
+	discordProvider := discord.New(ctx, database, user, redirect, domain)
+	lastfmProvider := lastfm.New(ctx, database, user, redirect, domain)
+
+	if len(providers) == 0 {
+		switch user.Provider {
+			case "discord":
+				return discordProvider.CreateUser()
+
+			case "lastfm":
+				return lastfmProvider.CreateUser()
+
+			default:
+				return ctx.Status(500).JSON(utils.Response[any]{
+					Result: nil,
+					Code:   http.StatusInternalServerError,
+					Error:  "Provider not supported",
+				})
+		}
+	} else {
+		switch user.Provider {
+		case "discord":
+			return discordProvider.UpdateUser()
+
+		case "lastfm":
+			return lastfmProvider.UpdateUser()
+
+		default:
+			return ctx.Status(500).JSON(utils.Response[any]{
+				Result: nil,
+				Code:   http.StatusInternalServerError,
+				Error:  "Provider not supported",
+			})
+		}
+	}
+
+	
 }
 
-// Provider Callback
-// @Summary Callback for provider
-// @Description 
-// @ID provider-callback
-// @Tags Authentication
-// @Accept  json
-// @Produce  json
-// @Param provider path string true "Provider"
-// @Success 301
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /auth/callback/{provider} [get]
-func CallbackHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	provider := vars["provider"]
+func LoginHandler(ctx *fiber.Ctx) error {
+	provider := ctx.Params("provider")
 
-	switch provider {
-	case "discord":
-		providers.NewDiscord().CallbackHandler(w, r)
+	if provider == "roblox" {
+		// TODO: add custom login handler for roblox
+	}
 
-	case "roblox":
-		providers.NewRoblox(w, r).CallbackHandler(w, r)
-
-	case "lastfm":
-		providers.NewLastFm(w, r).CallbackHandler(w, r)
-
-	default:
-		w.Write([]byte("Unknown provider"))
+	if gothUser, err := goth_fiber.CompleteUserAuth(ctx); err == nil {
+		return ctx.SendString(gothUser.Email)
+	} else {
+		return goth_fiber.BeginAuthHandler(ctx)
 	}
 }
 
-// Provider Login
-// @Summary Login to provider
-// @Description 
-// @ID provider-login
-// @Tags Authentication
-// @Accept  json
-// @Produce  json
-// @Param provider path string true "Provider"
-// @Success 301
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /auth/login/{provider} [post]
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	provider := vars["provider"]
+func LogoutHandler(ctx *fiber.Ctx) error {
+	provider := ctx.Params("provider")
 
-	switch provider {
-	case "discord":
-		providers.NewDiscord().LoginHandler(w, r)
+	redirect := ctx.Query("redirect")
+	
+	if provider == "discord" {
+		if err := goth_fiber.Logout(ctx); err != nil {
+			log.Fatal(err)
+		}
 
-	case "roblox":
-		providers.NewRoblox(w, r).LoginHandler(w, r)
+		// clear cookie didnt work for some reason
+		ctx.Cookie(&fiber.Cookie{
+			Name: "token",
+			Value: "",
+		})
 
-	case "lastfm":
-		providers.NewLastFm(w, r).LoginHandler(w, r)
+		if redirect != "" {
+			return ctx.Redirect(redirect)
+		} else {
+			return ctx.Status(200).JSON(utils.Response[any]{
+				Result: nil,
+				Code:   http.StatusOK,
+			});
+		}
+	}
 
-	default:
-		w.Write([]byte("Unknown provider"))
+	discordUser := ctx.Locals("user").(utils.IProvider)
+
+	database := db.New()
+
+	var deleted any
+
+	err := database.DB.From("providers").Delete().Eq("user", *discordUser.ID).Eq("type", provider).Execute(&deleted)
+
+	if err != nil {
+		return ctx.Status(500).JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusInternalServerError,
+			Error:  err.Error(),
+		})
+	}
+
+	if redirect != "" {
+		return ctx.Redirect(redirect)
+	} else {
+		return ctx.Status(200).JSON(utils.Response[any]{
+			Result: deleted,
+			Code:   http.StatusOK,
+		});
 	}
 }
 
-// Provider Logout
-// @Summary Logout of provider
-// @Description 
-// @ID provider-logout
-// @Tags Authentication
-// @Accept  json
-// @Produce  json
-// @Param provider path string true "Provider"
-// @Success 301
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /auth/logout/{provider} [post]
-func LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	provider := vars["provider"]
+func SessionHandler(ctx *fiber.Ctx) error {
+	token := ctx.Cookies("token")
+	claims, err := utils.GetClaimsFromToken(token)
 
-	switch provider {
-	case "discord":
-		providers.NewDiscord().LogoutHandler(w, r)
-	case "roblox":
-		providers.NewRoblox(w, r).LogoutHandler(w, r)
-	case "lastfm":
-		providers.NewLastFm(w, r).LogoutHandler(w, r)
-	default:
-		w.Write([]byte("Unknown provider"))
+	if err != nil {
+		return ctx.Status(500).JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusInternalServerError,
+			Error:  err.Error(),
+		})	
 	}
+
+	return ctx.Status(200).JSON(utils.Response[utils.IProvider]{
+		Result: claims.UserInfo,
+		Code:   http.StatusOK,
+	})
 }
 
-// Provider Information
-// @Summary Get provider information
-// @Description 
-// @ID provider-info
-// @Tags Authentication
-// @Accept  json
-// @Produce  json
-// @securityDefinitions.apikey ApiKeyAuth
-// @Param provider path string true "Provider"
-// @Success 200 {object} utils.IProvider "OK"
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /auth/providers/{provider} [get]
-func ProviderHandler(w http.ResponseWriter, r *http.Request) {
-	profile := context.Get(r, "profile").(utils.IProfile)
+func ProviderHandler(ctx *fiber.Ctx) error {
+	providerId := ctx.Params("provider")
 
-	vars := mux.Vars(r)
-	providerId := vars["provider"]
+	profile := ctx.Locals("profile").(utils.IProfile)
 
 	var providers []utils.IProvider
 
@@ -142,66 +203,30 @@ func ProviderHandler(w http.ResponseWriter, r *http.Request) {
 	err := database.DB.From("providers").Select("*").Eq("user", profile.ID).Eq("type", providerId).Execute(&providers)
 
 	if len(providers) == 0 {
-		data, err := json.Marshal(utils.Response[any]{
+		return ctx.JSON(utils.Response[any]{
 			Result: nil,
 			Code:   http.StatusOK,
 		})
-
-		if err != nil {
-			w.Write([]byte("Error"))
-			return
-		}
-
-		w.Write(data)
-
-		return
 	}
 
 	var provider utils.IProvider = providers[0]
 
 	if err != nil {
-		data, err := json.Marshal(utils.Response[any]{
+		return ctx.Status(500).JSON(utils.Response[any]{
 			Result: nil,
 			Code:   http.StatusNotFound,
 			Error:  err.Error(),
 		})
-
-		if err != nil {
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		w.Write(data)
-
-		return
 	}
 
-	data, err := json.Marshal(utils.Response[utils.IProvider]{
+	return ctx.JSON(utils.Response[utils.IProvider]{
 		Result: provider,
 		Code:   http.StatusOK,
 	})
-
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.Write(data)
 }
 
-// Providers Information
-// @Summary Get all provider information
-// @Description 
-// @ID providers-info
-// @Tags Authentication
-// @Accept  json
-// @Produce  json
-// @securityDefinitions.apikey ApiKeyAuth
-// @Success 200 {array} utils.IProvider "OK"
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /auth/providers [get]
-func ProvidersHandler(w http.ResponseWriter, r *http.Request) {
-	profile := context.Get(r, "profile").(utils.IProfile)
+func ProvidersHandler(ctx *fiber.Ctx) error {
+	profile := ctx.Locals("profile").(utils.IProfile)
 
 	var providers []utils.IProvider
 
@@ -210,32 +235,17 @@ func ProvidersHandler(w http.ResponseWriter, r *http.Request) {
 	err := database.DB.From("providers").Select("*").Eq("user", profile.ID).Execute(&providers)
 
 	if err != nil {
-		data, err := json.Marshal(utils.Response[any]{
+		return ctx.Status(500).JSON(utils.Response[any]{
 			Result: nil,
-			Code:   http.StatusNotFound,
+			Code:   http.StatusInternalServerError,
 			Error:  err.Error(),
 		})
-
-		if err != nil {
-			w.Write([]byte("Error"))
-			return
-		}
-
-		w.Write(data)
-		return
 	}
 
-	res, err := json.Marshal(utils.Response[[]utils.IProvider]{
+	return ctx.Status(200).JSON(utils.Response[[]utils.IProvider]{
 		Result: providers,
 		Code:   http.StatusOK,
 	})
-
-	if err != nil {
-		w.Write([]byte("Error"))
-		return
-	}
-
-	w.Write(res)
 }
 
 type StatusResponse struct {
@@ -243,84 +253,36 @@ type StatusResponse struct {
 	Blacklist     *utils.IBlacklist `json:"blacklist,omitempty"`
 }
 
-// User Status
-// @Summary Get the authenticated user's status
-// @Description 
-// @ID user-status
-// @Tags User
-// @Accept  json
-// @Produce  json
-// @securityDefinitions.apikey ApiKeyAuth
-// @Success 200 {object} StatusResponse "OK"
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /auth/status [get]
-func StatusHandler(w http.ResponseWriter, r *http.Request) {
-	user := context.Get(r, "user").(*supabase.User)
+func StatusHandler(ctx *fiber.Ctx) error {
+	user := ctx.Locals("user").(utils.IProvider)
 	var blacklist []utils.IBlacklist
 
 	database := db.New()
 
-	err := database.DB.From("blacklist").Select("*").Eq("user", user.ID).Execute(&blacklist)
+	err := database.DB.From("blacklist").Select("*").Eq("user", *user.ID).Execute(&blacklist)
 
 	if err != nil {
-		data, err := json.Marshal(utils.Response[any]{
+		return ctx.Status(500).JSON(utils.Response[any]{
 			Result: nil,
-			Code:   http.StatusNotFound,
+			Code:   http.StatusInternalServerError,
 			Error:  err.Error(),
 		})
-
-		if err != nil {
-			w.Write([]byte("Error"))
-			return
-		}
-
-		w.Write(data)
-
-		return
 	}
 
 	if len(blacklist) == 0 {
-		data, err := json.Marshal(utils.Response[StatusResponse]{
+		return ctx.Status(200).JSON(utils.Response[StatusResponse]{
 			Result: StatusResponse{
 				Authenticated: true,
 			},
 			Code: http.StatusOK,
 		})
-
-		if err != nil {
-			w.Write([]byte("Error"))
-			return
-		}
-
-		w.Write(data)
-
-		return
 	}
 
-	data, err := json.Marshal(utils.Response[StatusResponse]{
+	return ctx.Status(200).JSON(utils.Response[StatusResponse]{
 		Result: StatusResponse{
 			Authenticated: true,
 			Blacklist:     &blacklist[0],
 		},
 		Code: http.StatusForbidden,
 	})
-
-	if err != nil {
-		r, e := json.Marshal(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusNotFound,
-			Error:  err.Error(),
-		})
-
-		if e != nil {
-			w.Write([]byte("Error"))
-			return
-		}
-
-		w.Write(r)
-
-		return
-	}
-
-	w.Write(data)
 }

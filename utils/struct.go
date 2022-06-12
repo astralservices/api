@@ -61,15 +61,17 @@ type IWorkspace struct {
 }
 
 type IProvider struct {
-	ID                  *string                `json:"id,omitempty"`
-	CreatedAt           time.Time              `json:"created_at"`
-	User                string                 `json:"user"`
-	Type                string                 `json:"type"`
-	ProviderID          string                 `json:"provider_id"`
-	ProviderAccessToken string                 `json:"provider_access_token"`
-	ProviderData        map[string]interface{} `json:"provider_data"`
-	ProviderExpiresAt   *time.Time             `json:"provider_expires_at,omitempty"`
-	DiscordID           *string                `json:"discord_id,omitempty"`
+	ID                   *string                `json:"id,omitempty"`
+	CreatedAt            time.Time              `json:"created_at"`
+	User                 string                 `json:"user"`
+	Type                 string                 `json:"type"`
+	ProviderID           string                 `json:"provider_id"`
+	ProviderAccessToken  string                 `json:"provider_access_token"`
+	ProviderRefreshToken string                 `json:"provider_refresh_token"`
+	ProviderData         map[string]interface{} `json:"provider_data"`
+	ProviderExpiresAt    *time.Time             `json:"provider_expires_at,omitempty"`
+	ProviderAvatarUrl    *string                `json:"provider_avatar_url,omitempty"`
+	ProviderEmail        *string                `json:"provider_email,omitempty"`
 }
 
 type IBlacklist struct {
@@ -108,14 +110,14 @@ type IRegion struct {
 }
 
 type ITeamMember struct {
-	ID        int    `json:"id"`
-	CreatedAt string `json:"created_at"`
-	User      ITeamMemberUser   `json:"user"`
-	Name      string `json:"name"`
-	Pronouns  string `json:"pronouns"`
-	Location  string `json:"location"`
-	About     string `json:"about"`
-	Role      string `json:"role"`
+	ID        int             `json:"id"`
+	CreatedAt string          `json:"created_at"`
+	User      ITeamMemberUser `json:"user"`
+	Name      string          `json:"name"`
+	Pronouns  string          `json:"pronouns"`
+	Location  string          `json:"location"`
+	About     string          `json:"about"`
+	Role      string          `json:"role"`
 }
 
 type ITeamMemberUser struct {

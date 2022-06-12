@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"math/rand"
 	"net/http"
@@ -11,16 +10,19 @@ import (
 	"time"
 
 	v1 "github.com/astralservices/api/api/v1"
+	"github.com/astralservices/api/api/v1/auth"
 	_ "github.com/astralservices/api/docs"
 	"github.com/astralservices/api/utils"
-	"github.com/gorilla/mux"
+	"github.com/goccy/go-json"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
-	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := json.Marshal(utils.Response[struct {
+func IndexHandler(c *fiber.Ctx) error {
+	return c.JSON(utils.Response[struct {
 		Message string `json:"message"`
 	}]{
 		Result: struct {
@@ -28,29 +30,8 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 		}{Message: "API is running!"},
 		Code: http.StatusOK,
 	})
-
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.Write(data)
 }
 
-// @title Astral API
-// @version 1.0.0
-// @description The official API for Astral Services.
-// @termsOfService https://docs.astralapp.io/legal/terms
-
-// @contact.name DevOps Team
-// @contact.url https://astralapp.io
-// @contact.email devops@astralapp.io
-
-// @license.name MPL-2.0
-// @license.url https://opensource.org/licenses/MPL-2.0
-
-// @host api-dev.internal.astralapp.io
-// @BasePath /api/v1
 func main() {
 	godotenv.Load(".env.local")
 	rand.Seed(time.Now().UnixNano())
@@ -58,36 +39,44 @@ func main() {
 	flag.DurationVar(&wait, "graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish - e.g. 15s or 1m")
 	flag.Parse()
 
-	r := mux.NewRouter()
-	r.Use(utils.LoggingMiddleware)
-	r.Use(utils.CORSMiddleware)
-	r.Use(utils.JSONMiddleware)
-	r.StrictSlash(true)
+	app := fiber.New(fiber.Config{
+		JSONEncoder:   json.Marshal,
+		JSONDecoder:   json.Unmarshal,
+		Prefork:       os.Getenv("PRODUCTION") == "true",
+		CaseSensitive: true,
+		StrictRouting: true,
+		ServerHeader:  "Astral Services API",
+		AppName:       "Astral Services API",
+	})
 
-	r.HandleFunc("/", IndexHandler)
+	app.Use(func(c *fiber.Ctx) error {
+		c.Set("Content-type", "application/json; charset=utf-8")
 
-	r.PathPrefix("/docs/").Handler(httpSwagger.WrapHandler)
-	
-	r.Handle("/api/v1", v1.New(r))
+		return c.Next()
+	})
+
+	app.Use(cors.New())
+	app.Use(logger.New())
+
+	app.Get("/", IndexHandler)
+
+	api := app.Group("/api")
+
+	v1.V1Handler(api.Group("/v1", func(c *fiber.Ctx) error {
+		auth.InitGoth()
+		c.Set("Version", "v1")
+		return c.Next()
+	}))
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "3000"
 	}
 
-	srv := &http.Server{
-		Addr: "0.0.0.0:" + port,
-		// Good practice to set timeouts to avoid Slowloris attacks.
-		WriteTimeout: time.Second * 15,
-		ReadTimeout:  time.Second * 15,
-		IdleTimeout:  time.Second * 60,
-		Handler:      r, // Pass our instance of gorilla/mux in.
-	}
-
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
 		log.Infoln("Starting server on port " + port)
-		if err := srv.ListenAndServe(); err != nil {
+		if err := app.Listen("127.0.0.1:" + port); err != nil {
 			log.Fatalln(err)
 		}
 	}()
@@ -101,14 +90,14 @@ func main() {
 	<-c
 
 	// Create a deadline to wait for.
-	ctx, cancel := context.WithTimeout(context.Background(), wait)
+	_, cancel := context.WithTimeout(context.Background(), wait)
 	defer cancel()
 	// Doesn't block if no connections, but will otherwise wait
 	// until the timeout deadline.
-	srv.Shutdown(ctx)
+	app.Shutdown()
 	// Optionally, you could run srv.Shutdown in a goroutine and block on
 	// <-ctx.Done() if your application should wait for other services
 	// to finalize based on context cancellation.
-	log.Println("shutting down")
+	log.Println("Shutting down")
 	os.Exit(0)
 }

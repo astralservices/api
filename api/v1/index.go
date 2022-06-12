@@ -1,45 +1,24 @@
 package v1
 
 import (
-	"encoding/json"
 	"net/http"
-	"sort"
 
-	auth "github.com/astralservices/api/api/v1/auth"
+	"github.com/astralservices/api/api/v1/auth"
 	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
-	"github.com/gorilla/mux"
+	"github.com/gofiber/fiber/v2"
 )
 
-func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := json.Marshal(utils.Response[struct {
-		Message string `json:"message"`
-	}]{
-		Result: struct {
-			Message string "json:\"message\""
-		}{Message: "API v1 is running!"},
-		Code: http.StatusOK,
-	})
+func V1Handler(router fiber.Router) {
+	router.Get("/stats", StatsHandler)
+	router.Get("/regions", RegionsHandler)
+	router.Get("/team", TeamHandler)
 
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.Write(data)
+	auth.AuthHandler(router.Group("/auth").Use(utils.AuthInjectorMiddleware))
 }
 
-// Statistics
-// @Summary Gets statistics for Astral Services
-// @Description 
-// @ID stats
-// @Tags Public
-// @Accept  json
-// @Produce  json
-// @Success 200 {array} utils.IStatistic "OK"
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /stats [get]
-func StatsHandler(w http.ResponseWriter, r *http.Request) {
+
+func StatsHandler(c *fiber.Ctx) error {
 	var stats []utils.IStatistic
 
 	database := db.New()
@@ -47,45 +26,19 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 	err := database.DB.From("stats").Select("*").Execute(&stats)
 
 	if err != nil {
-		errorData, err := json.Marshal(utils.Response[any]{
+		return c.JSON(utils.Response[any]{
 			Error: err.Error(),
 			Code:  http.StatusInternalServerError,
 		})
-
-		if err != nil {
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		w.Write(errorData)
-
-		return
 	}
 
-	data, err := json.Marshal(utils.Response[[]utils.IStatistic]{
+	return c.JSON(utils.Response[[]utils.IStatistic]{
 		Result: stats,
 		Code:   http.StatusOK,
 	})
-
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.Write(data)
 }
 
-// Regions
-// @Summary Get Astral's regions
-// @Description 
-// @ID regions
-// @Tags Public
-// @Accept  json
-// @Produce  json
-// @Success 200 {array} utils.IRegion "OK"
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /regions [get]
-func RegionsHandler(w http.ResponseWriter, r *http.Request) {
+func RegionsHandler(c *fiber.Ctx) error {
 	var regions []utils.IRegion
 
 	database := db.New()
@@ -93,19 +46,10 @@ func RegionsHandler(w http.ResponseWriter, r *http.Request) {
 	err := database.DB.From("regions").Select("id, flag, city, region, country, prettyName, lat, long, maxBots").Execute(&regions)
 
 	if err != nil {
-		errorData, err := json.Marshal(utils.Response[any]{
+		return c.JSON(utils.Response[any]{
 			Error: err.Error(),
 			Code:  http.StatusInternalServerError,
 		})
-
-		if err != nil {
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		w.Write(errorData)
-
-		return
 	}
 
 	// remove the region "localhost"
@@ -116,80 +60,28 @@ func RegionsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data, err := json.Marshal(utils.Response[[]utils.IRegion]{
+	return c.JSON(utils.Response[[]utils.IRegion]{
 		Result: regions,
 		Code:   http.StatusOK,
 	})
-
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.Write(data)
 }
 
-// Team
-// @Summary Get Astral's team members
-// @Description 
-// @ID team
-// @Tags Public
-// @Accept  json
-// @Produce  json
-// @Success 200 {array} utils.ITeamMember "OK"
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /team [get]
-func TeamHandler(w http.ResponseWriter, r *http.Request) {
-	var teams []utils.ITeamMember
+func TeamHandler(c *fiber.Ctx) error {
+	var teams []any
 
 	database := db.New()
 
 	err := database.DB.From("teamMembers").Select("*, user(identity_data)").Execute(&teams)
 
 	if err != nil {
-		errorData, err := json.Marshal(utils.Response[any]{
+		return c.JSON(utils.Response[any]{
 			Error: err.Error(),
 			Code:  http.StatusInternalServerError,
 		})
-
-		if err != nil {
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		w.Write(errorData)
-
-		return
 	}
 
-	sort.Slice(teams, func(i, j int) bool {
-		return teams[i].ID < teams[j].ID
-	})
-
-	data, err := json.Marshal(utils.Response[[]utils.ITeamMember]{
+	return c.JSON(utils.Response[any]{
 		Result: teams,
 		Code:   http.StatusOK,
 	})
-
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.Write(data)
-}
-
-func New(ref *mux.Router) *mux.Router {
-	r := ref.PathPrefix("/api/v1").Subrouter()
-
-	r.StrictSlash(true)
-
-	r.HandleFunc("/", IndexHandler)
-	r.HandleFunc("/stats", StatsHandler)
-	r.HandleFunc("/regions", RegionsHandler)
-	r.HandleFunc("/team", TeamHandler)
-
-	r.Handle("/auth", auth.New(r))
-
-	return r
 }

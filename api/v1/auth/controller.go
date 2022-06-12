@@ -1,29 +1,41 @@
 package auth
 
 import (
+	"os"
+
 	"github.com/astralservices/api/utils"
-	"github.com/gorilla/mux"
+	"github.com/gofiber/fiber/v2"
+	"github.com/markbates/goth"
+	"github.com/markbates/goth/providers/discord"
+	"github.com/markbates/goth/providers/lastfm"
+	"github.com/shareed2k/goth_fiber"
 )
 
-func New(ref *mux.Router) *mux.Router {
-	r := ref.PathPrefix("/auth").Subrouter()
+func AuthHandler(router fiber.Router) {
+	router.Get("/callback/:provider", CallbackHandler)
+	router.Post("/login/:provider", goth_fiber.BeginAuthHandler)
+	router.Get("/login/:provider", func(c *fiber.Ctx) error {
+		redirect := c.Query("redirect")
 
-	r.StrictSlash(true)
+		c.Cookie(&fiber.Cookie{
+			Name:  "redirect",
+			Value: redirect,
+		})
+		
+		return goth_fiber.BeginAuthHandler(c)
+	})
+	router.Get("/logout/:provider", LogoutHandler)
+	router.Get("/session", SessionHandler)
 
-	r.HandleFunc("/", IndexHandler)
-	r.HandleFunc("/callback/{provider}", CallbackHandler).Methods("GET", "OPTIONS", "POST")
-	r.HandleFunc("/login/{provider}", LoginHandler).Methods("GET", "OPTIONS", "POST")
-	r.HandleFunc("/logout/{provider}", LogoutHandler).Methods("GET", "OPTIONS", "POST")
+	authed := router.Use(utils.AuthMiddleware, utils.ProfileMiddleware)
+	authed.Get("/providers", ProvidersHandler)
+	authed.Get("/providers/:provider", ProviderHandler)
+	authed.Get("/status", StatusHandler)
+}
 
-	gated := r.PathPrefix("/providers").Subrouter()
-	gated.Use(utils.AuthMiddleware)
-	gated.Use(utils.ProfileMiddleware)
-	gated.HandleFunc("/", ProvidersHandler).Methods("GET", "OPTIONS")
-	gated.HandleFunc("/{provider}", ProviderHandler).Methods("GET", "POST", "OPTIONS")
-
-	status := r.PathPrefix("/status").Subrouter()
-	status.Use(utils.AuthMiddleware)
-	status.HandleFunc("/", StatusHandler)
-
-	return r
+func InitGoth() {
+	goth.UseProviders(
+		discord.New(os.Getenv("DISCORD_CLIENT_ID"), os.Getenv("DISCORD_CLIENT_SECRET"), utils.GetCallbackURL("discord"), discord.ScopeIdentify, discord.ScopeEmail, discord.ScopeGuilds),
+		lastfm.New(os.Getenv("LASTFM_KEY"), os.Getenv("LASTFM_SECRET"), utils.GetCallbackURL("lastfm")),
+	)
 }

@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bytes"
-	"encoding/json"
 	"math/rand"
 	"net/http"
 	"os"
@@ -11,9 +10,9 @@ import (
 	"time"
 
 	db "github.com/astralservices/api/supabase"
-	"github.com/gorilla/context"
+	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/handlers"
-	"github.com/nedpals/supabase-go"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -34,123 +33,101 @@ func JSONMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func AuthMiddleware(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		database := db.New()
-		userCookie, err := r.Cookie("access_token")
-		authHeader := r.Header.Get("Authorization")
+func AuthMiddleware(ctx *fiber.Ctx) error {
+	auth_header := ctx.GetReqHeaders()["Authorization"]
+	auth_cookie := ctx.Cookies("token")
+    if (auth_header != "" && !strings.HasPrefix(auth_header, "Bearer")) || auth_cookie == "" {
+		return ctx.Status(http.StatusUnauthorized).JSON(Response[struct {
+			Message string `json:"message"`
+		}]{
+			Result: struct {
+				Message string "json:\"message\""
+			}{Message: "You must be logged in to access this page!"},
+			Code:  http.StatusUnauthorized,
+			Error: "",
+		})
+    }
+    
+    var tokenString string
 
-		var res []byte
-		var authorization string
+	if auth_header != "" {
+		tokenString = strings.TrimPrefix(auth_header, "Bearer ")
+	} else if auth_cookie != "" {
+		tokenString = auth_cookie
+	}
 
-		if authHeader != "" {
-			authorization = strings.Split(authHeader, " ")[1]
-		} else {
-			if err != nil {
-				return
-			}
-			authorization = userCookie.Value
-		}
+    claims, err := GetClaimsFromToken(tokenString)
+    if err != nil {
+        return ctx.Status(http.StatusUnauthorized).JSON(Response[struct {
+			Message string `json:"message"`
+		}]{
+			Result: struct {
+				Message string "json:\"message\""
+			}{Message: "There was an error while trying to authenticate you. Please try again."},
+			Code:  http.StatusUnauthorized,
+			Error: "",
+		})
+	}
+    
+	ctx.Locals("user", claims.UserInfo)
 
-		if authorization == "" {
-			res, err = json.Marshal(Response[struct {
-				Message string `json:"message"`
-			}]{
-				Result: struct {
-					Message string "json:\"message\""
-				}{Message: "You must be logged in to access this page!"},
-				Code:  http.StatusUnauthorized,
-				Error: err.Error(),
-			})
-
-			if err != nil {
-				w.Write([]byte(err.Error()))
-				return
-			}
-
-			w.Write(res)
-
-			return
-		}
-
-		user, err := database.Auth.User(r.Context(), authorization)
-
-		if err != nil {
-			res, err = json.Marshal(Response[struct {
-				Message string `json:"message"`
-			}]{
-				Result: struct {
-					Message string "json:\"message\""
-				}{Message: "You must be logged in to access this page!"},
-				Code:  http.StatusUnauthorized,
-				Error: err.Error(),
-			})
-
-			if err != nil {
-				w.Write([]byte(err.Error()))
-				return
-			}
-
-			w.Write(res)
-
-			return
-		}
-
-		context.Set(r, "user", user)
-
-		h.ServeHTTP(w, r)
-	})
+	return ctx.Next()
 }
 
-func ProfileMiddleware(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		database := db.New()
+// Injects user if the user exists
+func AuthInjectorMiddleware(ctx *fiber.Ctx) error {
+	auth_header := ctx.GetReqHeaders()["Authorization"]
+	auth_cookie := ctx.Cookies("token")
+    if (auth_header != "" && !strings.HasPrefix(auth_header, "Bearer")) || auth_cookie == "" {
+		return ctx.Next()
+    }
+    
+    var tokenString string
 
-		user := context.Get(r, "user").(*supabase.User)
+	if auth_header != "" {
+		tokenString = strings.TrimPrefix(auth_header, "Bearer ")
+	} else if auth_cookie != "" {
+		tokenString = auth_cookie
+	}
 
-		var profile []IProfile
+    claims, err := GetClaimsFromToken(tokenString)
+    if err != nil {
+        return ctx.Next()
+	}
+    
+	ctx.Locals("user", claims.UserInfo)
 
-		err := database.DB.From("profiles").Select("*").Eq("id", user.ID).Execute(&profile)
-
-		if err != nil {
-			w.Header().Add("Content-Type", "application/json")
-			res, err := json.Marshal(Response[any]{
-				Result: nil,
-				Code:   http.StatusNotFound,
-				Error:  err.Error(),
-			})
-
-			if err != nil {
-				w.Write([]byte(err.Error()))
-				return
-			}
-
-			w.Write(res)
-		}
-
-		context.Set(r, "profile", profile[0])
-
-		h.ServeHTTP(w, r)
-	})
+	return ctx.Next()
 }
 
-func LoggingMiddleware(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
+func ProfileMiddleware(ctx *fiber.Ctx) error {
+	database := db.New()
 
-		uri := r.RequestURI
-		method := r.Method
-		h.ServeHTTP(w, r) // serve the original request
+	user := ctx.Locals("user").(IProvider)
 
-		duration := time.Since(start)
+	var profile []IProfile
 
-		// log request details
-		log.WithFields(log.Fields{
-			"uri":      uri,
-			"method":   method,
-			"duration": duration,
-		}).Info("Request")
-	})
+	err := database.DB.From("profiles").Select("*").Eq("id", *user.ID).Execute(&profile)
+
+	if err != nil {
+		return ctx.JSON(Response[any]{
+			Result: nil,
+			Code:   http.StatusNotFound,
+			Error:  err.Error(),
+		})
+	}
+
+	if len(profile) == 0 {
+		return ctx.JSON(Response[any]{
+			Result: nil,
+			Code:   http.StatusNotFound,
+			Error: 	"Profile not found",
+		})
+	}
+
+	ctx.Locals("profile", profile[0])
+
+	return ctx.Next()
 }
 
 type String string
@@ -374,4 +351,50 @@ func RandomWord() string {
 
 func RandInt(min int, max int) int {
     return min + rand.Intn(max-min)
+}
+
+type UserClaims struct {
+	UserInfo IProvider
+	*jwt.RegisteredClaims
+}
+
+var secret = []byte(os.Getenv("SECRET"))
+
+func CreateToken(sub string, userInfo IProvider) (string, error) {
+	token := jwt.New(jwt.GetSigningMethod("HS256"))
+	exp := time.Now().Add(time.Hour * 24)
+	token.Claims = &UserClaims{
+		userInfo,
+		&jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(exp),
+			Subject:   sub,
+		},
+	}
+	val, err := token.SignedString(secret)
+
+	if err != nil {
+		return "", err
+	}
+	return val, nil
+}
+
+func GetClaimsFromToken(tokenString string) (UserClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			log.Printf("unexpected signing method ", token.Header["alg"])
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return secret, nil
+	})
+	if err != nil {
+		return UserClaims{}, err
+	}
+
+	claims := token.Claims.(*UserClaims)
+	ok := token.Valid
+
+	if ok {
+		return *claims, nil
+	}
+	return UserClaims{}, err
 }

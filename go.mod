@@ -13,7 +13,20 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 )
 
-require github.com/swaggo/files v0.0.0-20210815190702-a29dd2bc99b2 // indirect
+require (
+	github.com/andybalholm/brotli v1.0.4 // indirect
+	github.com/goccy/go-json v0.9.7 // indirect
+	github.com/gofiber/fiber/v2 v2.34.0 // indirect
+	github.com/golang-jwt/jwt/v4 v4.4.1 // indirect
+	github.com/gorilla/securecookie v1.1.1 // indirect
+	github.com/gorilla/sessions v1.1.1 // indirect
+	github.com/klauspost/compress v1.15.0 // indirect
+	github.com/shareed2k/goth_fiber v0.2.6 // indirect
+	github.com/swaggo/files v0.0.0-20210815190702-a29dd2bc99b2 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasthttp v1.37.0 // indirect
+	github.com/valyala/tcplisten v1.0.0 // indirect
+)
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
