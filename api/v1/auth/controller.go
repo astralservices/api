@@ -3,6 +3,8 @@ package auth
 import (
 	"os"
 
+	"github.com/astralservices/api/api/v1/auth/providers/roblox"
+	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/markbates/goth"
@@ -16,12 +18,19 @@ func AuthHandler(router fiber.Router) {
 	router.Post("/login/:provider", goth_fiber.BeginAuthHandler)
 	router.Get("/login/:provider", func(c *fiber.Ctx) error {
 		redirect := c.Query("redirect")
+		provider := c.Params("provider")
 
 		c.Cookie(&fiber.Cookie{
 			Name:  "redirect",
 			Value: redirect,
 		})
+
+		roblox := roblox.New(c, db.New(), redirect)
 		
+		if provider == "roblox" {
+			return roblox.GenerateCodeForUser()
+		}
+
 		return goth_fiber.BeginAuthHandler(c)
 	})
 	router.Get("/logout/:provider", LogoutHandler)

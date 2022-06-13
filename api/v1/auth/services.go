@@ -7,6 +7,7 @@ import (
 
 	"github.com/astralservices/api/api/v1/auth/providers/discord"
 	"github.com/astralservices/api/api/v1/auth/providers/lastfm"
+	"github.com/astralservices/api/api/v1/auth/providers/roblox"
 	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
 	"github.com/gofiber/fiber/v2"
@@ -24,13 +25,23 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
+	database := db.New()
+
+	provider := ctx.Params("provider")
+
+	redirect := ctx.Cookies("redirect")
+
+	if provider == "roblox" {
+		rbx := roblox.New(ctx, database, redirect)
+		return rbx.VerifyUser()
+	}
+
 	user, err := goth_fiber.CompleteUserAuth(ctx)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	database := db.New()
 
 	var providers []utils.IProvider
 
@@ -54,7 +65,6 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	redirect := ctx.Cookies("redirect")
 
 	var domain string
 
