@@ -60,6 +60,17 @@ type IWorkspace struct {
 	Pending      bool        `json:"pending"`
 }
 
+type IWorkspaceMember struct {
+	ID 		 string      `json:"id"`
+	CreatedAt string      `json:"created_at"`
+	Profile IProfile    `json:"profile"`
+	Workspace IWorkspace `json:"workspace"`
+	Role    string      `json:"role"`
+	Pending bool        `json:"pending"`
+	InvitedBy string      `json:"invited_by"`
+	
+}
+
 type IProvider struct {
 	ID                   *string                `json:"id,omitempty"`
 	CreatedAt            time.Time              `json:"created_at"`

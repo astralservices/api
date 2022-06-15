@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/astralservices/api/api/v1/auth"
+	"github.com/astralservices/api/api/v1/workspaces"
 	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
 	"github.com/gofiber/fiber/v2"
@@ -15,6 +16,7 @@ func V1Handler(router fiber.Router) {
 	router.Get("/team", TeamHandler)
 
 	auth.AuthHandler(router.Group("/auth").Use(utils.AuthInjectorMiddleware))
+	workspaces.WorkspacesHandler(router.Group("/workspaces"))
 }
 
 
