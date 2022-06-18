@@ -10,6 +10,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/markbates/goth"
 	"github.com/nedpals/supabase-go"
+	"github.com/stripe/stripe-go/v72"
+	"github.com/stripe/stripe-go/v72/customer"
 )
 
 type DiscordProvider struct {
@@ -60,12 +62,34 @@ func (p DiscordProvider) CreateUser() error {
 
 	var profile []utils.IProfile
 
+	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+
+	userParams := &stripe.CustomerParams{
+		Email: stripe.String(user.Email),
+		Name:  stripe.String(out[0].ProviderData["username"].(string)),
+	}
+
+	userParams.AddMetadata("user_id", *out[0].ID)
+	userParams.AddMetadata("discord_id", out[0].ProviderID)
+
+	customer, err := customer.New(userParams)
+
+	if err != nil {
+		return ctx.Status(500).JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusInternalServerError,
+			Error:  err.Error(),
+		})
+	}
+
 	profileErr := database.DB.From("profiles").Insert(map[string]interface{}{
-		"id": out[0].ID,
-		"email": &user.Email,
-		"preferred_name": out[0].ProviderData["username"],
-		"identity_data":  out[0].ProviderData,
-		"discord_id":    out[0].ProviderID,
+		"id":                 out[0].ID,
+		"email":              &user.Email,
+		"preferred_name":     out[0].ProviderData["username"],
+		"identity_data":      out[0].ProviderData,
+		"discord_id":         out[0].ProviderID,
+		"stripe_customer_id": customer.ID,
+		"avatar_url":         &user.AvatarURL,
 	}).Execute(&profile)
 
 	if profileErr != nil {
@@ -129,6 +153,7 @@ func (p DiscordProvider) UpdateUser() error {
 	profileErr := database.DB.From("profiles").Update(map[string]interface{}{
 		"preferred_name": out[0].ProviderData["username"],
 		"identity_data":  out[0].ProviderData,
+		"avatar_url":     &user.AvatarURL,
 	}).Eq("id", *out[0].ID).Execute(&profile)
 
 	if profileErr != nil {

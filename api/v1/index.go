@@ -2,6 +2,7 @@ package v1
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/astralservices/api/api/v1/auth"
 	"github.com/astralservices/api/api/v1/workspaces"
@@ -14,9 +15,34 @@ func V1Handler(router fiber.Router) {
 	router.Get("/stats", StatsHandler)
 	router.Get("/regions", RegionsHandler)
 	router.Get("/team", TeamHandler)
+	router.Get("/plans", PlansHandler)
 
 	auth.AuthHandler(router.Group("/auth").Use(utils.AuthInjectorMiddleware))
 	workspaces.WorkspacesHandler(router.Group("/workspaces"))
+}
+
+func PlansHandler(c *fiber.Ctx) error {
+	var plans []utils.IPlan
+
+	database := db.New()
+
+	err := database.DB.From("plans").Select("*").Execute(&plans)
+
+	if err != nil {
+		return c.JSON(utils.Response[any]{
+			Error: err.Error(),
+			Code:  http.StatusInternalServerError,
+		})
+	}
+
+	sort.Slice(plans, func(i, j int) bool {
+		return plans[i].PriceMonthly < plans[j].PriceMonthly
+	})
+
+	return c.JSON(utils.Response[[]utils.IPlan]{
+		Result: plans,
+		Code:   http.StatusOK,
+	})
 }
 
 

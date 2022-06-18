@@ -36,7 +36,7 @@ func JSONMiddleware(h http.Handler) http.Handler {
 func AuthMiddleware(ctx *fiber.Ctx) error {
 	auth_header := ctx.GetReqHeaders()["Authorization"]
 	auth_cookie := ctx.Cookies("token")
-    if (auth_header != "" && !strings.HasPrefix(auth_header, "Bearer")) || auth_cookie == "" {
+	if (auth_header != "" && !strings.HasPrefix(auth_header, "Bearer")) || auth_cookie == "" {
 		return ctx.Status(http.StatusUnauthorized).JSON(Response[struct {
 			Message string `json:"message"`
 		}]{
@@ -46,9 +46,9 @@ func AuthMiddleware(ctx *fiber.Ctx) error {
 			Code:  http.StatusUnauthorized,
 			Error: "",
 		})
-    }
-    
-    var tokenString string
+	}
+
+	var tokenString string
 
 	if auth_header != "" {
 		tokenString = strings.TrimPrefix(auth_header, "Bearer ")
@@ -56,9 +56,9 @@ func AuthMiddleware(ctx *fiber.Ctx) error {
 		tokenString = auth_cookie
 	}
 
-    claims, err := GetClaimsFromToken(tokenString)
-    if err != nil {
-        return ctx.Status(http.StatusUnauthorized).JSON(Response[struct {
+	claims, err := GetClaimsFromToken(tokenString)
+	if err != nil {
+		return ctx.Status(http.StatusUnauthorized).JSON(Response[struct {
 			Message string `json:"message"`
 		}]{
 			Result: struct {
@@ -68,7 +68,7 @@ func AuthMiddleware(ctx *fiber.Ctx) error {
 			Error: "",
 		})
 	}
-    
+
 	ctx.Locals("user", claims.UserInfo)
 
 	return ctx.Next()
@@ -78,11 +78,11 @@ func AuthMiddleware(ctx *fiber.Ctx) error {
 func AuthInjectorMiddleware(ctx *fiber.Ctx) error {
 	auth_header := ctx.GetReqHeaders()["Authorization"]
 	auth_cookie := ctx.Cookies("token")
-    if (auth_header != "" && !strings.HasPrefix(auth_header, "Bearer")) || auth_cookie == "" {
+	if (auth_header != "" && !strings.HasPrefix(auth_header, "Bearer")) || auth_cookie == "" {
 		return ctx.Next()
-    }
-    
-    var tokenString string
+	}
+
+	var tokenString string
 
 	if auth_header != "" {
 		tokenString = strings.TrimPrefix(auth_header, "Bearer ")
@@ -90,12 +90,78 @@ func AuthInjectorMiddleware(ctx *fiber.Ctx) error {
 		tokenString = auth_cookie
 	}
 
-    claims, err := GetClaimsFromToken(tokenString)
-    if err != nil {
-        return ctx.Next()
+	claims, err := GetClaimsFromToken(tokenString)
+	if err != nil {
+		return ctx.Next()
 	}
-    
+
 	ctx.Locals("user", claims.UserInfo)
+
+	return ctx.Next()
+}
+
+func WorkspaceMiddleware(ctx *fiber.Ctx) error {
+	workspace_id := ctx.Params("workspace_id")
+
+	if workspace_id == "" {
+		return ctx.Status(http.StatusBadRequest).JSON(Response[struct {
+			Message string `json:"message"`
+		}]{
+			Result: struct {
+				Message string "json:\"message\""
+			}{Message: "You must provide a workspace ID!"},
+			Code:  http.StatusBadRequest,
+			Error: "",
+		})
+	}
+
+	database := db.New()
+
+	var workspace IWorkspace
+
+	err := database.DB.From("workspaces").Select("*").Single().Eq("id", workspace_id).Execute(&workspace)
+
+	if err != nil {
+		return ctx.Status(http.StatusBadRequest).JSON(Response[struct {
+			Message string `json:"message"`
+		}]{
+			Result: struct {
+				Message string "json:\"message\""
+			}{Message: "There was an error while trying to find the workspace!"},
+			Code:  http.StatusBadRequest,
+			Error: err.Error(),
+		})
+	}
+
+	ctx.Locals("workspace", workspace)
+
+	return ctx.Next()
+}
+
+func WorkspaceMemberMiddleware(ctx *fiber.Ctx) error {
+	workspace := ctx.Locals("workspace").(IWorkspace)
+
+	user := ctx.Locals("user").(IProvider)
+
+	database := db.New()
+
+	var workspaceMember IWorkspaceMember
+
+	err := database.DB.From("workspace_members").Select("id, created_at, role, pending").Single().Eq("workspace", *workspace.ID).Eq("profile", *user.ID).Execute(&workspaceMember)
+
+	if err != nil {
+		return ctx.Status(http.StatusBadRequest).JSON(Response[struct {
+			Message string `json:"message"`
+		}]{
+			Result: struct {
+				Message string "json:\"message\""
+			}{Message: "There was an error while trying to find the authenticated workspace member!"},
+			Code:  http.StatusBadRequest,
+			Error: err.Error(),
+		})
+	}
+
+	ctx.Locals("workspace_member", workspaceMember)
 
 	return ctx.Next()
 }
@@ -121,7 +187,7 @@ func ProfileMiddleware(ctx *fiber.Ctx) error {
 		return ctx.JSON(Response[any]{
 			Result: nil,
 			Code:   http.StatusNotFound,
-			Error: 	"Profile not found",
+			Error:  "Profile not found",
 		})
 	}
 
@@ -350,7 +416,7 @@ func RandomWord() string {
 }
 
 func RandInt(min int, max int) int {
-    return min + rand.Intn(max-min)
+	return min + rand.Intn(max-min)
 }
 
 type UserClaims struct {

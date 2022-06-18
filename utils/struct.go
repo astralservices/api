@@ -46,29 +46,28 @@ type IIdentityData struct {
 }
 
 type IWorkspace struct {
-	ID           string      `json:"id"`
-	CreatedAt    string      `json:"created_at"`
-	Owner        string      `json:"owner"`
-	Members      []string    `json:"members"`
-	GroupID      string      `json:"group_id"`
-	Name         string      `json:"name"`
-	Logo         string      `json:"logo"`
+	ID           *string     `json:"id,omitempty"`
+	CreatedAt    *string     `json:"created_at,omitempty"`
+	Owner        *string     `json:"owner,omitempty"`
+	Members      *[]string   `json:"members,omitempty"`
+	GroupID      *string     `json:"group_id,omitempty"`
+	Name         string      `json:"name" form:"name"`
+	Logo         string      `json:"logo" form:"logo"`
 	Settings     interface{} `json:"settings"`
-	Plan         int64       `json:"plan"`
-	Visibility   string      `json:"visibility"`
+	Plan         int64       `json:"plan" form:"plan"`
+	Visibility   string      `json:"visibility" form:"visibility"`
 	Integrations interface{} `json:"integrations"`
 	Pending      bool        `json:"pending"`
 }
 
 type IWorkspaceMember struct {
-	ID 		 string      `json:"id"`
-	CreatedAt string      `json:"created_at"`
-	Profile IProfile    `json:"profile"`
+	ID        string     `json:"id"`
+	CreatedAt string     `json:"created_at"`
+	Profile   IProfile   `json:"profile"`
 	Workspace IWorkspace `json:"workspace"`
-	Role    string      `json:"role"`
-	Pending bool        `json:"pending"`
-	InvitedBy string      `json:"invited_by"`
-	
+	Role      string     `json:"role"`
+	Pending   bool       `json:"pending"`
+	InvitedBy string     `json:"invited_by"`
 }
 
 type IProvider struct {
@@ -133,4 +132,65 @@ type ITeamMember struct {
 
 type ITeamMemberUser struct {
 	IdentityData IIdentityData `json:"identity_data"`
+}
+
+type IPlan struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	PriceMonthly string `json:"priceMonthly"`
+	PriceYearly  string `json:"priceYearly"`
+	Limit        string `json:"limit"`
+	Enabled      bool   `json:"enabled"`
+}
+
+type IBot struct {
+	ID        string        `json:"id"`
+	CreatedAt string        `json:"created_at"`
+	Region    string        `json:"region"`
+	Owner     string        `json:"owner"`
+	Workspace IWorkspace    `json:"workspace"`
+	Settings  IBotSettings  `json:"settings"`
+	Token     string        `json:"token"`
+	Commands  []IBotCommand `json:"commands"`
+}
+
+type IBotCommand struct {
+	ID      string      `json:"id"`
+	Options interface{} `json:"options"`
+	Enabled bool        `json:"enabled"`
+}
+
+type IBotSettings struct {
+	Guild              string      `json:"guild"`
+	Prefix             string      `json:"prefix"`
+	Status             string      `json:"status"`
+	Activities         interface{} `json:"activities"`
+	RandomizeActivites bool        `json:"randomizeActivites"`
+	ActivityInterval   int         `json:"activityInterval"`
+	CurrentActivity    int         `json:"currentActivity"`
+	modules            IBotModules `json:"modules"`
+}
+
+type IBotModules struct {
+	Fun        IBotModule[any] `json:"fun"`
+	Moderation IBotModule[struct {
+		Logging struct {
+			Enabled bool   `json:"enabled"`
+			Channel string `json:"channel"`
+		} `json:"logging"`
+	}] `json:"moderation"`
+}
+
+type IBotModule[T any] struct {
+	Enabled bool `json:"enabled"`
+	Options T    `json:"options"`
+}
+
+type IBotAnalytics struct {
+	ID        *int        `json:"id,omitempty"`
+	Commands  interface{} `json:"commands"`
+	Timestamp time.Time   `json:"timestamp"`
+	Members   int         `json:"members"`
+	Messages  int         `json:"messages"`
+	Bot       *IBot       `json:"bot,omitempty"`
 }
