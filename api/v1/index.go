@@ -45,7 +45,6 @@ func PlansHandler(c *fiber.Ctx) error {
 	})
 }
 
-
 func StatsHandler(c *fiber.Ctx) error {
 	var stats []utils.IStatistic
 
@@ -67,7 +66,7 @@ func StatsHandler(c *fiber.Ctx) error {
 }
 
 func RegionsHandler(c *fiber.Ctx) error {
-	var regions []utils.IRegion
+	var regions []*utils.IRegion
 
 	database := db.New()
 
@@ -88,7 +87,30 @@ func RegionsHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	return c.JSON(utils.Response[[]utils.IRegion]{
+	var bots []struct {
+		Region string `json:"region"`
+	}
+
+	err = database.DB.From("bots").Select("region").Execute(&bots)
+
+	if err != nil {
+		return c.JSON(utils.Response[any]{
+			Error: err.Error(),
+			Code:  http.StatusInternalServerError,
+		})
+	}
+
+	// attach the number of bots to each region
+	for _, region := range regions {
+		region.Bots = 0
+		for _, bot := range bots {
+			if bot.Region == region.ID {
+				region.Bots++
+			}
+		}
+	}
+
+	return c.JSON(utils.Response[[]*utils.IRegion]{
 		Result: regions,
 		Code:   http.StatusOK,
 	})

@@ -117,6 +117,8 @@ type IRegion struct {
 	Long       float64 `json:"long"`
 	MaxBots    int     `json:"maxBots"`
 	Status     string  `json:"status"`
+
+	Bots int `json:"bots"`
 }
 
 type ITeamMember struct {

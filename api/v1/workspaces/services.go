@@ -521,3 +521,69 @@ func GetWorkspaceAnalytics(ctx *fiber.Ctx) error {
 		Code:   http.StatusOK,
 	})
 }
+
+func GetWorkspaceBot(ctx *fiber.Ctx) error {
+	workspace := ctx.Locals("workspace").(utils.IWorkspace)
+
+	var bots []utils.IBot
+
+	database := db.New()
+
+	err := database.DB.From("bots").Select("id, created_at, owner, region, settings, token, commands").Eq("workspace", *workspace.ID).Execute(&bots)
+
+	if err != nil {
+		return ctx.Status(500).JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusInternalServerError,
+			Error:  err.Error(),
+		})
+	}
+
+	if len(bots) == 0 {
+		return ctx.Status(404).JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusNotFound,
+			Error:  "Bot not found",
+		})
+	}
+
+	bot := bots[0]
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: bot,
+		Code:   http.StatusOK,
+	})
+}
+
+func CreateWorkspaceBot(ctx *fiber.Ctx) error {
+	workspace := ctx.Locals("workspace").(utils.IWorkspace)
+
+	redirect := ctx.FormValue("redirect")
+
+	var bot utils.IBot
+
+	database := db.New()
+
+	err := database.DB.From("bots").Insert(map[string]interface{}{
+		"workspace": workspace.ID,
+		"name":      ctx.FormValue("name"),
+		"token":     ctx.FormValue("token"),
+	}).Execute(&bot)
+
+	if err != nil {
+		return ctx.Status(500).JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusInternalServerError,
+			Error:  err.Error(),
+		})
+	}
+
+	if redirect != "" {
+		return ctx.Redirect(redirect)
+	}
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: bot,
+		Code:   http.StatusOK,
+	})
+}
