@@ -15,6 +15,8 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
+	github.com/aybabtme/flatjson v0.1.1 // indirect
+	github.com/aybabtme/orderedjson v0.1.0 // indirect
 	github.com/goccy/go-json v0.9.7 // indirect
 	github.com/gofiber/fiber/v2 v2.34.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.1 // indirect

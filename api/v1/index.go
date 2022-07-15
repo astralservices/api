@@ -2,12 +2,14 @@ package v1
 
 import (
 	"net/http"
+	"os"
 	"sort"
 
 	"github.com/astralservices/api/api/v1/auth"
 	"github.com/astralservices/api/api/v1/workspaces"
 	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
+	"github.com/aybabtme/orderedjson"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -16,6 +18,8 @@ func V1Handler(router fiber.Router) {
 	router.Get("/regions", RegionsHandler)
 	router.Get("/team", TeamHandler)
 	router.Get("/plans", PlansHandler)
+	router.Get("/integrations", IntegrationsHandler)
+	router.Get("/integrations/:id", IntegrationHandler)
 
 	auth.AuthHandler(router.Group("/auth").Use(utils.AuthInjectorMiddleware))
 	workspaces.WorkspacesHandler(router.Group("/workspaces"))
@@ -79,12 +83,15 @@ func RegionsHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// remove the region "localhost"
-	for i, region := range regions {
-		if region.ID == "localhost" {
-			regions = append(regions[:i], regions[i+1:]...)
-			break
+	if os.Getenv("ENV") != "development" {
+		// remove the region "localhost"
+		for i, region := range regions {
+			if region.ID == "localhost" {
+				regions = append(regions[:i], regions[i+1:]...)
+				break
+			}
 		}
+
 	}
 
 	var bots []struct {
@@ -132,6 +139,54 @@ func TeamHandler(c *fiber.Ctx) error {
 
 	return c.JSON(utils.Response[any]{
 		Result: teams,
+		Code:   http.StatusOK,
+	})
+}
+
+func IntegrationsHandler(c *fiber.Ctx) error {
+	var integrations []any
+
+	database := db.New()
+
+	err := database.DB.From("integrations").Select("*").Execute(&integrations)
+
+	if err != nil {
+		return c.JSON(utils.Response[any]{
+			Error: err.Error(),
+			Code:  http.StatusInternalServerError,
+		})
+	}
+
+	return c.JSON(utils.Response[any]{
+		Result: integrations,
+		Code:   http.StatusOK,
+	})
+}
+
+func IntegrationHandler(c *fiber.Ctx) error {
+	var integrations []orderedjson.Map
+	var integration any
+	id := c.Params("id")
+
+	database := db.New()
+
+	err := database.DB.From("integrations").Select("*").Eq("id", id).Execute(&integrations)
+
+	if err != nil {
+		return c.JSON(utils.Response[any]{
+			Error: err.Error(),
+			Code:  http.StatusInternalServerError,
+		})
+	}
+
+	if len(integrations) == 0 {
+		return utils.ErrorResponse(c, http.StatusNotFound, "Integration not found")
+	}
+
+	integration = integrations[0]
+
+	return c.JSON(utils.Response[any]{
+		Result: integration,
 		Code:   http.StatusOK,
 	})
 }

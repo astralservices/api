@@ -2,6 +2,8 @@ package utils
 
 import (
 	"time"
+
+	"github.com/aybabtme/orderedjson"
 )
 
 type Response[T any] struct {
@@ -146,14 +148,14 @@ type IPlan struct {
 }
 
 type IBot struct {
-	ID        string        `json:"id"`
-	CreatedAt string        `json:"created_at"`
-	Region    string        `json:"region"`
-	Owner     string        `json:"owner"`
-	Workspace IWorkspace    `json:"workspace"`
-	Settings  IBotSettings  `json:"settings"`
-	Token     string        `json:"token"`
-	Commands  []IBotCommand `json:"commands"`
+	ID        *string       `json:"id,omitempty"`
+	CreatedAt *time.Time    `json:"created_at,omitempty"`
+	Region    string        `json:"region" form:"region"`
+	Owner     *string       `json:"owner,omitempty"`
+	Workspace *IWorkspace   `json:"workspace,omitempty"`
+	Settings  IBotSettings  `json:"settings" form:"settings"`
+	Token     string        `json:"token" form:"token"`
+	Commands  []IBotCommand `json:"commands" form:"commands"`
 }
 
 type IBotCommand struct {
@@ -163,14 +165,19 @@ type IBotCommand struct {
 }
 
 type IBotSettings struct {
-	Guild              string      `json:"guild"`
-	Prefix             string      `json:"prefix"`
-	Status             string      `json:"status"`
-	Activities         interface{} `json:"activities"`
-	RandomizeActivites bool        `json:"randomizeActivites"`
-	ActivityInterval   int         `json:"activityInterval"`
-	CurrentActivity    int         `json:"currentActivity"`
-	modules            IBotModules `json:"modules"`
+	Guild               string         `json:"guild" form:"guild"`
+	Prefix              string         `json:"prefix" form:"prefix"`
+	Status              string         `json:"status" form:"status"`
+	Activities          []IBotActivity `json:"activities" form:"activities"`
+	RandomizeActivities bool           `json:"randomizeActivities" form:"randomizeActivities"`
+	ActivityInterval    int            `json:"activityInterval" form:"activityInterval"`
+	CurrentActivity     int            `json:"currentActivity"`
+	Modules             IBotModules    `json:"modules" form:"modules"`
+}
+
+type IBotActivity struct {
+	Name string `json:"name" form:"name"`
+	Type string `json:"type" form:"type"`
 }
 
 type IBotModules struct {
@@ -195,4 +202,111 @@ type IBotAnalytics struct {
 	Members   int         `json:"members"`
 	Messages  int         `json:"messages"`
 	Bot       *IBot       `json:"bot,omitempty"`
+}
+
+type IWorkspaceIntegration struct {
+	ID          int         `json:"id"`
+	CreatedAt   time.Time   `json:"created_at"`
+	Integration string      `json:"integration"`
+	Settings    interface{} `json:"settings"`
+	Workspace   string      `json:"workspace"`
+	Enabled     bool        `json:"enabled"`
+}
+
+type IIntegration struct {
+	ID               string             `json:"id"`
+	CreatedAt        time.Time          `json:"created_at"`
+	Name             string             `json:"name"`
+	PrettyName       string             `json:"prettyName"`
+	Icon             string             `json:"icon"`
+	IsIconSimpleIcon bool               `json:"isIconSimpleIcon"`
+	Website          string             `json:"website"`
+	Enabled          bool               `json:"enabled"`
+	Description      string             `json:"description"`
+	Schema           IIntegrationSchema `json:"schema"`
+}
+
+type IIntegrationSchema struct {
+	Type       string     `json:"type"`
+	Title      string     `json:"title"`
+	Properties OrderedMap `json:"properties"`
+}
+
+type IIntegrationSchemaInput struct {
+	Type  string `json:"type"`
+	Title string `json:"title"`
+}
+
+type IRobloxIntegration struct {
+	GroupId           string                              `json:"groupId" form:"groupId"`
+	Token             string                              `json:"token" form:"token"`
+	MemberCounter     IRobloxIntegrationMemberCounter     `json:"memberCounter" form:"memberCounter"`
+	ShoutProxy        IRobloxIntegrationShoutProxy        `json:"shoutProxy" form:"shoutProxy"`
+	BadActorDetection IRobloxIntegrationBadActorDetection `json:"badActorDetection" form:"badActorDetection"`
+	WallFilter        IRobloxIntegrationWallFilter        `json:"wallFilter" form:"wallFilter"`
+}
+
+type IRobloxIntegrationMemberCounter struct {
+	Enabled bool   `json:"enabled" form:"enabled"`
+	Message string `json:"message" form:"message"`
+	Webhook string `json:"webhook" form:"webhook"`
+	GroupId string `json:"groupId" form:"groupId"`
+}
+
+type IRobloxIntegrationShoutProxy struct {
+	Enabled bool   `json:"enabled" form:"enabled"`
+	Webhook string `json:"webhook" form:"webhook"`
+	GroupId string `json:"groupId" form:"groupId"`
+}
+
+type IRobloxIntegrationBadActorDetection struct {
+	Enabled bool `json:"enabled" form:"enabled"`
+	Factors struct {
+		BannedGroups    string `json:"bannedGroups" form:"bannedGroups"`
+		SketchyUsername bool   `json:"sketchyUsername" form:"sketchyUsername"`
+		NoDescription   bool   `json:"noDescription" form:"noDescription"`
+	}
+}
+
+type IRobloxIntegrationWallFilter struct {
+	Enabled       bool   `json:"enabled" form:"enabled"`
+	BannedPhrases string `json:"bannedPhrases" form:"bannedPhrases"`
+}
+
+type IRobloxSchema struct {
+	GroupId           orderedjson.Map `json:"groupId"`
+	Token             orderedjson.Map `json:"token"`
+	MemberCounter     orderedjson.Map `json:"member_counter"`
+	ShoutProxy        orderedjson.Map `json:"shout_proxy"`
+	BadActorDetection orderedjson.Map `json:"bad_actor_detection"`
+	WallFilter        orderedjson.Map `json:"wall_filter"`
+	Submit            orderedjson.Map `json:"submit"`
+}
+
+type IRobloxSchemaMemberCounter struct {
+	Enabled orderedjson.Map `json:"enabled"`
+	Message orderedjson.Map `json:"message"`
+	Webhook orderedjson.Map `json:"webhook"`
+	GroupId orderedjson.Map `json:"groupId"`
+}
+
+type IRobloxSchemaShoutProxy struct {
+	Enabled orderedjson.Map `json:"enabled"`
+	Webhook orderedjson.Map `json:"webhook"`
+	GroupId orderedjson.Map `json:"groupId"`
+}
+
+type IRobloxSchemaBadActorDetection struct {
+	Enabled orderedjson.Map `json:"enabled"`
+	Factors orderedjson.Map `json:"factors"`
+}
+
+type IRobloxSchemaFactors struct {
+	BannedGroups    orderedjson.Map `json:"banned_groups"`
+	SketchyUsername orderedjson.Map `json:"sketchyUsername"`
+	NoDescription   orderedjson.Map `json:"noDescription"`
+}
+
+type IRobloxSchemaWallFilter struct {
+	BannedPhrases orderedjson.Map `json:"bannedPhrases"`
 }

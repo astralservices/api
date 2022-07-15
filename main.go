@@ -17,6 +17,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 )
@@ -57,6 +58,8 @@ func main() {
 
 	app.Use(cors.New())
 	app.Use(logger.New())
+
+	app.Get("/monitor", monitor.New(monitor.Config{Title: "Astral API Metrics Page", Refresh: time.Second * 5}))
 
 	app.Get("/", IndexHandler)
 

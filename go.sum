@@ -48,6 +48,10 @@ github.com/astralservices/goblox v1.0.0 h1:NFMSsohUsS52FD0dpyTsAOTq4kZUWn4s7yLwD
 github.com/astralservices/goblox v1.0.0/go.mod h1:ay7cYshGuhelQoOLrzN4pMmmzs7atfFORoZLJNKiVqw=
 github.com/astralservices/goblox v1.1.0 h1:LFbYW5AOKnqiWkSJfOauzXivEegWnAcC9tRjB1sxoAU=
 github.com/astralservices/goblox v1.1.0/go.mod h1:ay7cYshGuhelQoOLrzN4pMmmzs7atfFORoZLJNKiVqw=
+github.com/aybabtme/flatjson v0.1.1 h1:8niARfVgFMuWFP8TuUtifslpI5r5J+vFRACzdqq7rk4=
+github.com/aybabtme/flatjson v0.1.1/go.mod h1:2oPC+j5XSGNN4+4zllTuLZ4z31CeflutT0Jw3dJBOxE=
+github.com/aybabtme/orderedjson v0.1.0 h1:cWe8j5xRWhP70MmEPTpicyUwG+A/15y+hdhtJpLyWF0=
+github.com/aybabtme/orderedjson v0.1.0/go.mod h1:7zJ7kWvWuzOKY/RhqjU4wlK2GLXM8N+Jj8B/OR+0sMY=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=

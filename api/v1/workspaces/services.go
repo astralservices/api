@@ -1,11 +1,13 @@
 package workspaces
 
 import (
+	"fmt"
 	"image"
 	"image/png"
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 
 	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
@@ -25,19 +27,7 @@ func GetWorkspaces(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_members").Select("workspace(*)").Eq("profile", *user.ID).Execute(&workspace_memberships)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
-	}
-
-	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	return ctx.Status(200).JSON(utils.Response[[]any]{
@@ -63,11 +53,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&workspaceData)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	client := fiber.AcquireClient()
@@ -77,11 +63,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	err = database.DB.From("plans").Select("*").Single().Eq("id", workspaceData.Plan).Execute(&plan)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	plans := map[string]int{
@@ -106,11 +88,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	subscription, err := sub.New(stripeParams)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	// create the workspace
@@ -132,11 +110,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	}).Execute(&workspaces)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	workspace := workspaces[0]
@@ -154,21 +128,13 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	fileHeader, err := ctx.FormFile("icon")
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	file, err := fileHeader.Open()
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	// resize the image
@@ -176,11 +142,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	img, _, err := image.Decode(file)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	resized := resize.Thumbnail(200, 200, img, resize.Lanczos3)
@@ -188,11 +150,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	err = png.Encode(agent.Request().BodyWriter(), resized)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	req, res := agent.Request(), fiber.AcquireResponse()
@@ -200,11 +158,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	err = agent.Do(req, res)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	// update the workspace with the path to the icon
@@ -216,11 +170,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	}).Eq("id", *workspace.ID).Execute(&updatedWorkspaces)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	updatedWorkspace := updatedWorkspaces[0]
@@ -236,11 +186,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	}).Execute(&workspace_membership)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	redirect := workspaceData.Redirect
@@ -289,11 +235,7 @@ func GetWorkspaceMembers(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_members").Select("*, profile(*)").Eq("workspace", *workspace.ID).Execute(&workspace_members)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	if countOnly {
@@ -323,15 +265,7 @@ func AddWorkspaceMember(ctx *fiber.Ctx) error {
 	err := database.DB.From("profiles").Select("*").Single().Eq("discord_id", ctx.FormValue("discord")).Execute(&member_profile)
 
 	if err != nil {
-		if redirect != "" {
-			return ctx.Redirect(redirect + "?error=" + err.Error())
-		}
-
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	// check if the user is already a member of the workspace
@@ -339,15 +273,7 @@ func AddWorkspaceMember(ctx *fiber.Ctx) error {
 	err = database.DB.From("workspace_members").Select("*").Eq("workspace", *workspace.ID).Eq("profile", member_profile.ID).Execute(&workspace_membership)
 
 	if err != nil {
-		if redirect != "" {
-			return ctx.Redirect(redirect + "?error=User is already a member of this workspace")
-		}
-
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, "User is already a member of this workspace")
 	}
 
 	err = database.DB.From("workspace_members").Insert(map[string]interface{}{
@@ -359,11 +285,7 @@ func AddWorkspaceMember(ctx *fiber.Ctx) error {
 	}).Execute(&workspace_membership)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	if redirect != "" {
@@ -386,11 +308,7 @@ func GetWorkspaceMember(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_members").Select("*, profile(*)").Eq("workspace", *workspace.ID).Eq("profile", ctx.Params("member")).Execute(&workspace_members)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	if len(workspace_members) == 0 {
@@ -423,11 +341,7 @@ func UpdateWorkspaceMember(ctx *fiber.Ctx) error {
 	}).Eq("workspace", *workspace.ID).Eq("profile", ctx.Params("member")).Execute(&workspace_members)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	if redirect != "" {
@@ -452,15 +366,7 @@ func RemoveWorkspaceMember(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_members").Delete().Eq("workspace", *workspace.ID).Eq("id", ctx.Params("member")).Execute(&workspace_members)
 
 	if err != nil {
-		if redirect != "" {
-			return ctx.Redirect(redirect + "?error=" + err.Error())
-		}
-
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	if redirect != "" {
@@ -483,11 +389,7 @@ func GetWorkspaceAnalytics(ctx *fiber.Ctx) error {
 	err := database.DB.From("bots").Select("id").Eq("workspace", *workspace.ID).Execute(&bots)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	if len(bots) == 0 {
@@ -501,14 +403,10 @@ func GetWorkspaceAnalytics(ctx *fiber.Ctx) error {
 
 	var analytics []utils.IBotAnalytics
 
-	err = database.DB.From("bot_analytics").Select("commands, timestamp, members, messages").Eq("bot", bot.ID).Execute(&analytics)
+	err = database.DB.From("bot_analytics").Select("commands, timestamp, members, messages").Eq("bot", *bot.ID).Execute(&analytics)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	// sort array by timestamp, latest first
@@ -523,31 +421,7 @@ func GetWorkspaceAnalytics(ctx *fiber.Ctx) error {
 }
 
 func GetWorkspaceBot(ctx *fiber.Ctx) error {
-	workspace := ctx.Locals("workspace").(utils.IWorkspace)
-
-	var bots []utils.IBot
-
-	database := db.New()
-
-	err := database.DB.From("bots").Select("id, created_at, owner, region, settings, token, commands").Eq("workspace", *workspace.ID).Execute(&bots)
-
-	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
-	}
-
-	if len(bots) == 0 {
-		return ctx.Status(404).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusNotFound,
-			Error:  "Bot not found",
-		})
-	}
-
-	bot := bots[0]
+	bot := ctx.Locals("bot").(utils.IBot)
 
 	return ctx.Status(200).JSON(utils.Response[any]{
 		Result: bot,
@@ -555,7 +429,155 @@ func GetWorkspaceBot(ctx *fiber.Ctx) error {
 	})
 }
 
+type BotSettings struct {
+	Guild               string               `json:"guild,omitempty"`
+	Prefix              string               `json:"prefix,omitempty" form:"prefix,omitempty"`
+	Status              string               `json:"status,omitempty" form:"status,omitempty"`
+	Activities          []utils.IBotActivity `json:"activities,omitempty" form:"activities,omitempty"`
+	RandomizeActivities bool                 `json:"randomizeActivities,omitempty" form:"randomizeActivities,omitempty"`
+	ActivityInterval    int                  `json:"activityInterval,omitempty" form:"activityInterval,omitempty"`
+	CurrentActivity     int                  `json:"currentActivity,omitempty"`
+	Modules             utils.IBotModules    `json:"modules" form:"modules"`
+}
+
+type BotFormData struct {
+	Region   *string      `json:"region,omitempty" form:"region,omitempty"`
+	Settings *BotSettings `json:"settings,omitempty" form:"settings,omitempty"`
+	Token    *string      `json:"token,omitempty" form:"token,omitempty"`
+}
+
 func CreateWorkspaceBot(ctx *fiber.Ctx) error {
+	workspace := ctx.Locals("workspace").(utils.IWorkspace)
+	user := ctx.Locals("user").(utils.IProvider)
+
+	redirect := ctx.FormValue("redirect")
+
+	var formData BotFormData = BotFormData{
+		Settings: &BotSettings{
+			Activities: []utils.IBotActivity{
+				{
+					Type: "PLAYING",
+					Name: "a game!",
+				},
+			},
+			RandomizeActivities: false,
+			ActivityInterval:    300,
+			CurrentActivity:     0,
+			Modules:             utils.IBotModules{},
+			Status:              "online",
+		},
+	}
+
+	err := ctx.BodyParser(&formData)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	// validate the token through Discord's API by fetching the self user
+
+	client := fiber.AcquireClient()
+
+	agent := client.Get("https://discord.com/api/v9/users/@me")
+
+	agent.Add("Authorization", "Bot "+*formData.Token)
+
+	req, res := agent.Request(), fiber.AcquireResponse()
+
+	err = agent.Do(req, res)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	if res.StatusCode() != 200 {
+		return utils.ErrorResponse(ctx, 422, "Invalid token")
+	}
+
+	var bots []any
+
+	var bot any
+
+	database := db.New()
+
+	err = database.DB.From("bots").Insert(map[string]interface{}{
+		"workspace": workspace.ID,
+		"region":    formData.Region,
+		"settings":  formData.Settings,
+		"token":     formData.Token,
+		"owner":     user.ID,
+	}).Execute(&bots)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	bot = bots[0]
+
+	if redirect != "" {
+		return ctx.Redirect(redirect)
+	}
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: bot,
+		Code:   http.StatusOK,
+	})
+}
+
+func UpdateWorkspaceBot(ctx *fiber.Ctx) error {
+	workspace := ctx.Locals("workspace").(utils.IWorkspace)
+	bot := ctx.Locals("bot").(utils.IBot)
+
+	redirect := ctx.FormValue("redirect")
+
+	form := BotFormData{
+		Settings: &BotSettings{
+			Guild:               bot.Settings.Guild,
+			Prefix:              bot.Settings.Prefix,
+			Status:              bot.Settings.Status,
+			Activities:          bot.Settings.Activities,
+			RandomizeActivities: bot.Settings.RandomizeActivities,
+			ActivityInterval:    bot.Settings.ActivityInterval,
+			CurrentActivity:     bot.Settings.CurrentActivity,
+			Modules:             bot.Settings.Modules,
+		},
+	}
+
+	err := ctx.BodyParser(&form)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	var bots []any
+
+	var updatedBot any
+
+	database := db.New()
+
+	err = database.DB.From("bots").Update(BotFormData{
+		Region:   form.Region,
+		Settings: form.Settings,
+		Token:    form.Token,
+	}).Eq("workspace", *workspace.ID).Execute(&bots)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	updatedBot = bots[0]
+
+	if redirect != "" {
+		return ctx.Redirect(redirect)
+	}
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: updatedBot,
+		Code:   http.StatusOK,
+	})
+}
+
+func DeleteWorkspaceBot(ctx *fiber.Ctx) error {
 	workspace := ctx.Locals("workspace").(utils.IWorkspace)
 
 	redirect := ctx.FormValue("redirect")
@@ -564,18 +586,10 @@ func CreateWorkspaceBot(ctx *fiber.Ctx) error {
 
 	database := db.New()
 
-	err := database.DB.From("bots").Insert(map[string]interface{}{
-		"workspace": workspace.ID,
-		"name":      ctx.FormValue("name"),
-		"token":     ctx.FormValue("token"),
-	}).Execute(&bot)
+	err := database.DB.From("bots").Delete().Eq("workspace", *workspace.ID).Eq("id", ctx.Params("bot")).Execute(&bot)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	if redirect != "" {
@@ -584,6 +598,171 @@ func CreateWorkspaceBot(ctx *fiber.Ctx) error {
 
 	return ctx.Status(200).JSON(utils.Response[any]{
 		Result: bot,
+		Code:   http.StatusOK,
+	})
+}
+
+func GetWorkspaceIntegrations(ctx *fiber.Ctx) error {
+	workspace := ctx.Locals("workspace").(utils.IWorkspace)
+
+	var integrations []utils.IWorkspaceIntegration
+
+	database := db.New()
+
+	err := database.DB.From("workspace_integrations").Select("*").Eq("workspace", *workspace.ID).Execute(&integrations)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: integrations,
+		Code:   http.StatusOK,
+	})
+}
+
+func GetWorkspaceIntegration(ctx *fiber.Ctx) error {
+	integration := ctx.Locals("integration").(utils.IWorkspaceIntegration)
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: integration,
+		Code:   http.StatusOK,
+	})
+}
+
+func EnableWorkspaceIntegration(ctx *fiber.Ctx) error {
+	// check if the workspace integration exists, if not to create it and set enabled to true, and if it does exist to just set enabled to true
+	workspace := ctx.Locals("workspace").(utils.IWorkspace)
+	integrationId := ctx.Params("integrationId")
+
+	redirect := ctx.FormValue("redirect")
+
+	database := db.New()
+
+	var integrations []utils.IWorkspaceIntegration
+	var integration utils.IWorkspaceIntegration
+
+	err := database.DB.From("workspace_integrations").Select("*").Eq("workspace", *workspace.ID).Eq("integration", integrationId).Execute(&integrations)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	if len(integrations) == 0 {
+		err = database.DB.From("workspace_integrations").Insert(map[string]interface{}{
+			"workspace":   *workspace.ID,
+			"integration": integrationId,
+			"enabled":     true,
+		}).Execute(&integrations)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+	} else {
+		err = database.DB.From("workspace_integrations").Update(map[string]interface{}{
+			"enabled": true,
+		}).Eq("workspace", *workspace.ID).Eq("integration", integrationId).Execute(&integrations)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+	}
+
+	integration = integrations[0]
+
+	if redirect != "" {
+		return ctx.Redirect(redirect)
+	}
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: integration,
+		Code:   http.StatusOK,
+	})
+}
+
+func DisableWorkspaceIntegration(ctx *fiber.Ctx) error {
+	// check if the workspace integration exists, if not to create it and set enabled to true, and if it does exist to just set enabled to true
+	workspace := ctx.Locals("workspace").(utils.IWorkspace)
+	integrationId := ctx.Params("integrationId")
+
+	redirect := ctx.FormValue("redirect")
+
+	database := db.New()
+
+	var integrations []utils.IWorkspaceIntegration
+	var integration utils.IWorkspaceIntegration
+
+	err := database.DB.From("workspace_integrations").Select("*").Eq("workspace", *workspace.ID).Eq("integration", integrationId).Execute(&integrations)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	if len(integrations) == 0 {
+		err = database.DB.From("workspace_integrations").Insert(map[string]interface{}{
+			"workspace":   *workspace.ID,
+			"integration": integrationId,
+			"enabled":     false,
+		}).Execute(&integrations)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+	} else {
+		err = database.DB.From("workspace_integrations").Update(map[string]interface{}{
+			"enabled": false,
+		}).Eq("workspace", *workspace.ID).Eq("integration", integrationId).Execute(&integrations)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+	}
+
+	integration = integrations[0]
+
+	if redirect != "" {
+		return ctx.Redirect(redirect)
+	}
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: integration,
+		Code:   http.StatusOK,
+	})
+}
+
+func UpdateWorkspaceIntegration(ctx *fiber.Ctx) error {
+	integration := ctx.Locals("integration").(utils.IWorkspaceIntegration)
+
+	redirect := ctx.FormValue("redirect")
+
+	database := db.New()
+
+	formData := make(map[string]interface{})
+
+	err := ctx.BodyParser(&formData)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	fmt.Printf("%+v\n", formData)
+
+	var integrations []utils.IWorkspaceIntegration
+
+	err = database.DB.From("workspace_integrations").Update(map[string]interface{}{
+		"settings": formData,
+	}).Eq("id", strconv.Itoa(integration.ID)).Execute(&integrations)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	if redirect != "" {
+		return ctx.Redirect(redirect)
+	}
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: integration,
 		Code:   http.StatusOK,
 	})
 }

@@ -2,9 +2,12 @@ package utils
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -194,6 +197,79 @@ func ProfileMiddleware(ctx *fiber.Ctx) error {
 	ctx.Locals("profile", profile[0])
 
 	return ctx.Next()
+}
+
+func BotMiddleware(ctx *fiber.Ctx) error {
+	workspace := ctx.Locals("workspace").(IWorkspace)
+
+	var bots []IBot
+
+	database := db.New()
+
+	err := database.DB.From("bots").Select("id, created_at, owner, region, settings, token, commands").Eq("workspace", *workspace.ID).Execute(&bots)
+
+	if err != nil {
+		return ctx.Status(500).JSON(Response[any]{
+			Result: nil,
+			Code:   http.StatusInternalServerError,
+			Error:  err.Error(),
+		})
+	}
+
+	if len(bots) == 0 {
+		return ctx.Status(404).JSON(Response[any]{
+			Result: nil,
+			Code:   http.StatusNotFound,
+			Error:  "Bot not found",
+		})
+	}
+
+	bot := bots[0]
+
+	ctx.Locals("bot", bot)
+
+	return ctx.Next()
+}
+
+func WorkspaceIntegrationMiddleware(ctx *fiber.Ctx) error {
+	integrationId := ctx.Params("integrationId")
+	workspace := ctx.Locals("workspace").(IWorkspace)
+
+	var integrations []IWorkspaceIntegration
+
+	database := db.New()
+
+	fmt.Println(integrationId, *workspace.ID)
+
+	err := database.DB.From("workspace_integrations").Select("*").Eq("workspace", *workspace.ID).Eq("integration", integrationId).Execute(&integrations)
+
+	if err != nil {
+		return ErrorResponse(ctx, 500, err.Error())
+	}
+
+	fmt.Printf("%+v\n", integrations)
+
+	if len(integrations) == 0 {
+		return ErrorResponse(ctx, 404, "Integration not found")
+	}
+
+	ctx.Locals("integration", integrations[0])
+
+	return ctx.Next()
+}
+
+func ErrorResponse(ctx *fiber.Ctx, code int, message string) error {
+	redirect := ctx.FormValue("redirect")
+
+	if redirect != "" {
+		return ctx.Redirect(redirect + "?error=" + message)
+	}
+
+	return ctx.Status(500).JSON(Response[any]{
+		Result: nil,
+		Code:   code,
+		Error:  message,
+	})
 }
 
 type String string
@@ -463,4 +539,50 @@ func GetClaimsFromToken(tokenString string) (UserClaims, error) {
 		return *claims, nil
 	}
 	return UserClaims{}, err
+}
+
+type OrderedMap struct {
+	Order []string
+	Map   map[string]string
+}
+
+func (om *OrderedMap) UnmarshalJSON(b []byte) error {
+	json.Unmarshal(b, &om.Map)
+
+	index := make(map[string]int)
+	for key := range om.Map {
+		om.Order = append(om.Order, key)
+		esc, _ := json.Marshal(key) //Escape the key
+		index[key] = bytes.Index(b, esc)
+	}
+
+	sort.Slice(om.Order, func(i, j int) bool { return index[om.Order[i]] < index[om.Order[j]] })
+	return nil
+}
+
+func (om OrderedMap) MarshalJSON() ([]byte, error) {
+	var b []byte
+	buf := bytes.NewBuffer(b)
+	buf.WriteRune('{')
+	l := len(om.Order)
+	for i, key := range om.Order {
+		km, err := json.Marshal(key)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(km)
+		buf.WriteRune(':')
+		vm, err := json.Marshal(om.Map[key])
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(vm)
+		if i != l-1 {
+			buf.WriteRune(',')
+		}
+		fmt.Println(buf.String())
+	}
+	buf.WriteRune('}')
+	fmt.Println(buf.String())
+	return buf.Bytes(), nil
 }

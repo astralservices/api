@@ -23,7 +23,24 @@ func WorkspacesHandler(router fiber.Router) {
 	workspaceRouter.Delete("/members/:member", RemoveWorkspaceMember)
 	workspaceRouter.Post("/members/:member/remove", RemoveWorkspaceMember) // Fallback for HTML Forms
 
-	workspaceRouter.Get("/bot", GetWorkspaceBot)
+	// compatablity with HTML forms
+	workspaceRouter.Post("/bot/create", CreateWorkspaceBot)
+	workspaceRouter.Post("/bot", CreateWorkspaceBot)
+
+	botRouter := workspaceRouter.Group("/bot").Use(utils.BotMiddleware)
+	botRouter.Get("/", GetWorkspaceBot)
+	botRouter.Post("/", UpdateWorkspaceBot)
 
 	workspaceRouter.Get("/analytics", GetWorkspaceAnalytics)
+
+	workspaceRouter.Get("/integrations", GetWorkspaceIntegrations)
+
+	workspaceRouter.Post("/integrations/enable/:integrationId", EnableWorkspaceIntegration)
+	workspaceRouter.Post("/integrations/disable/:integrationId", DisableWorkspaceIntegration)
+
+	integrationRouter := workspaceRouter.Group("/integrations/:integrationId").Use(utils.WorkspaceIntegrationMiddleware)
+	integrationRouter.Get("/", GetWorkspaceIntegration)
+	integrationRouter.Post("/", UpdateWorkspaceIntegration)
+	// integrationRouter.Delete("/", DeleteWorkspaceIntegration)
+
 }
