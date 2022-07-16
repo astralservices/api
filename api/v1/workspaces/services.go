@@ -13,6 +13,7 @@ import (
 	"github.com/astralservices/api/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/nfnt/resize"
+	"github.com/nqd/flat"
 	"github.com/stripe/stripe-go/v72"
 	"github.com/stripe/stripe-go/v72/sub"
 )
@@ -737,20 +738,30 @@ func UpdateWorkspaceIntegration(ctx *fiber.Ctx) error {
 
 	database := db.New()
 
-	formData := make(map[string]interface{})
-
-	err := ctx.BodyParser(&formData)
+	form, err := ctx.Request().MultipartForm()
 
 	if err != nil {
 		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
-	fmt.Printf("%+v\n", formData)
+	data := make(map[string]interface{})
+
+	for key, value := range form.Value {
+		data[key] = value[0]
+	}
+
+	out, err := flat.Unflatten(data, nil)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	fmt.Printf("%+v\n", out)
 
 	var integrations []utils.IWorkspaceIntegration
 
 	err = database.DB.From("workspace_integrations").Update(map[string]interface{}{
-		"settings": formData,
+		"settings": out,
 	}).Eq("id", strconv.Itoa(integration.ID)).Execute(&integrations)
 
 	if err != nil {

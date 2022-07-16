@@ -4,28 +4,30 @@ go 1.18
 
 require (
 	github.com/astralservices/goblox v1.1.0
+	github.com/aybabtme/orderedjson v0.1.0
+	github.com/goccy/go-json v0.9.7
+	github.com/gofiber/fiber/v2 v2.34.0
+	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/gorilla/context v1.1.1
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/joho/godotenv v1.4.0
 	github.com/markbates/goth v1.72.0
 	github.com/nedpals/supabase-go v0.1.8
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
+	github.com/shareed2k/goth_fiber v0.2.6
 	github.com/sirupsen/logrus v1.8.1
+	github.com/stripe/stripe-go/v72 v72.114.0
 )
 
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/aybabtme/flatjson v0.1.1 // indirect
-	github.com/aybabtme/orderedjson v0.1.0 // indirect
-	github.com/goccy/go-json v0.9.7 // indirect
-	github.com/gofiber/fiber/v2 v2.34.0 // indirect
-	github.com/golang-jwt/jwt/v4 v4.4.1 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gorilla/sessions v1.1.1 // indirect
+	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/klauspost/compress v1.15.0 // indirect
-	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
-	github.com/shareed2k/goth_fiber v0.2.6 // indirect
-	github.com/stripe/stripe-go/v72 v72.114.0 // indirect
+	github.com/nqd/flat v0.1.1 // indirect
 	github.com/swaggo/files v0.0.0-20210815190702-a29dd2bc99b2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.37.0 // indirect
@@ -51,7 +53,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/swaggo/http-swagger v1.2.8
-	github.com/swaggo/swag v1.8.2 // indirect
+	github.com/swaggo/swag v1.8.2
 	github.com/urfave/cli/v2 v2.3.0 // indirect
 	golang.org/x/net v0.0.0-20220516155154-20f960328961 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect

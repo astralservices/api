@@ -26,7 +26,7 @@ func AuthHandler(router fiber.Router) {
 		})
 
 		roblox := roblox.New(c, db.New(), redirect)
-		
+
 		if provider == "roblox" {
 			return roblox.GenerateCodeForUser()
 		}
