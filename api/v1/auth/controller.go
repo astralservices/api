@@ -40,6 +40,7 @@ func AuthHandler(router fiber.Router) {
 	authed.Get("/providers", ProvidersHandler)
 	authed.Get("/providers/:provider", ProviderHandler)
 	authed.Get("/status", StatusHandler)
+	authed.Get("/gdpr", DataHandler)
 }
 
 func InitGoth() {

@@ -212,17 +212,142 @@ func GetWorkspace(ctx *fiber.Ctx) error {
 }
 
 func UpdateWorkspace(ctx *fiber.Ctx) error {
-	// workspaceID := ctx.Params("id")
+	database := db.New()
 
-	// return not implemented
-	return ctx.Status(501).JSON(utils.Response[any]{
-		Result: nil,
-		Code:   http.StatusNotImplemented,
+	workspace := ctx.Locals("workspace").(utils.IWorkspace)
+
+	workspaceData := struct {
+		Name        string `json:"name" form:"name"`
+		Description string `json:"description" form:"description"`
+		Visibility  string `json:"visibility" form:"visibility"`
+		Plan        string `json:"plan" form:"plan"`
+		Redirect    string `json:"redirect" form:"redirect"`
+	}{}
+
+	err := ctx.BodyParser(&workspaceData)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	client := fiber.AcquireClient()
+
+	plan := utils.IPlan{}
+
+	err = database.DB.From("plans").Select("*").Single().Eq("id", workspaceData.Plan).Execute(&plan)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	plans := map[string]int{
+		"free":    1,
+		"starter": 2,
+		"pro":     3,
+	}
+
+	// create the workspace
+
+	workspaces := []utils.IWorkspace{}
+
+	err = database.DB.From("workspaces").Update(map[string]interface{}{
+		"name":       workspaceData.Name,
+		"visibility": workspaceData.Visibility,
+		"plan":       plans[workspaceData.Plan],
+		"settings": map[string]interface{}{
+			"isPaidPlan":  plans[workspaceData.Plan] > 1,
+			"description": workspaceData.Description,
+		},
+	}).Eq("id", *workspace.ID).Execute(&workspaces)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	workspace = workspaces[0]
+
+	mf, err := ctx.MultipartForm()
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	iconExists := mf.File["icon"]
+
+	if iconExists != nil {
+
+		icon, err := ctx.FormFile("icon")
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+
+		// upload the workspace logo
+
+		path := os.Getenv("SUPABASE_URL") + "/storage/v1/object/workspaces-data/workspaces/" + *workspace.ID + "/logo.png"
+		publicPath := os.Getenv("SUPABASE_URL") + "/storage/v1/object/public/workspaces-data/workspaces/" + *workspace.ID + "/logo.png"
+
+		agent := client.Put(path)
+
+		agent.Add("Content-Type", "image/png")
+		agent.Add("Authorization", "Bearer "+os.Getenv("SUPABASE_KEY"))
+
+		file, err := icon.Open()
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+
+		// resize the image
+
+		img, _, err := image.Decode(file)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+
+		resized := resize.Thumbnail(200, 200, img, resize.Lanczos3)
+
+		err = png.Encode(agent.Request().BodyWriter(), resized)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+
+		req, res := agent.Request(), fiber.AcquireResponse()
+
+		err = agent.Do(req, res)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+
+		// update the workspace with the path to the icon
+
+		updatedWorkspaces := []utils.IWorkspace{}
+
+		err = database.DB.From("workspaces").Update(map[string]interface{}{
+			"logo": publicPath,
+		}).Eq("id", *workspace.ID).Execute(&updatedWorkspaces)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+
+		workspace = updatedWorkspaces[0]
+
+	}
+
+	redirect := workspaceData.Redirect
+
+	if redirect != "" {
+		return ctx.Redirect(redirect)
+	}
+
+	return ctx.Status(200).JSON(utils.Response[utils.IWorkspace]{
+		Result: workspace,
+		Code:   http.StatusOK,
 	})
-
-	// workspaces := []utils.IWorkspace{}
-
-	// database := db.New()
 }
 
 func GetWorkspaceMembers(ctx *fiber.Ctx) error {

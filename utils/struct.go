@@ -72,6 +72,15 @@ type IWorkspaceMember struct {
 	InvitedBy string     `json:"invited_by"`
 }
 
+type IWorkspaceMemberWithoutProfile struct {
+	ID        string `json:"id"`
+	CreatedAt string `json:"created_at"`
+	Workspace any    `json:"workspace"`
+	Role      string `json:"role"`
+	Pending   bool   `json:"pending"`
+	InvitedBy string `json:"invited_by"`
+}
+
 type IProvider struct {
 	ID                   *string                `json:"id,omitempty"`
 	CreatedAt            time.Time              `json:"created_at"`
@@ -309,4 +318,17 @@ type IRobloxSchemaFactors struct {
 
 type IRobloxSchemaWallFilter struct {
 	BannedPhrases orderedjson.Map `json:"bannedPhrases"`
+}
+
+type IBotModerationAction struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	Bot       string    `json:"bot"`
+	Guild     string    `json:"guild"`
+	Action    string    `json:"action"`
+	Moderator string    `json:"moderator"`
+	Reason    string    `json:"reason"`
+	Expires   bool      `json:"expires"`
+	Expiry    time.Time `json:"expiry"`
+	User      string    `json:"user"`
 }

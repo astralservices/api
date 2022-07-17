@@ -13,7 +13,8 @@ func WorkspacesHandler(router fiber.Router) {
 	workspaceRouter := authed.Group("/:workspace_id").Use(utils.WorkspaceMiddleware, utils.WorkspaceMemberMiddleware)
 
 	workspaceRouter.Get("/", GetWorkspace)
-	// workspaceRouter.Put("/:id", UpdateWorkspace)
+	workspaceRouter.Put("/", UpdateWorkspace)
+	workspaceRouter.Post("/", UpdateWorkspace)
 	// workspaceRouter.Delete("/:id", DeleteWorkspace)
 
 	workspaceRouter.Get("/members", GetWorkspaceMembers)
@@ -25,7 +26,6 @@ func WorkspacesHandler(router fiber.Router) {
 
 	// compatablity with HTML forms
 	workspaceRouter.Post("/bot/create", CreateWorkspaceBot)
-	workspaceRouter.Post("/bot", CreateWorkspaceBot)
 
 	botRouter := workspaceRouter.Group("/bot").Use(utils.BotMiddleware)
 	botRouter.Get("/", GetWorkspaceBot)

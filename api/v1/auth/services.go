@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -42,7 +44,6 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 		log.Fatal(err)
 	}
 
-
 	var providers []utils.IProvider
 
 	discordUser := ctx.Locals("user")
@@ -52,13 +53,9 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 	err = database.DB.From("providers").Select("*").Eq("provider_id", user.UserID).Eq("type", user.Provider).Execute(&providers)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
-	}
+		return utils.ErrorResponse(ctx, 500, err.Error())
 
+	}
 
 	var domain string
 
@@ -69,11 +66,8 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 	}
 
 	if user.Provider != "discord" && discordUser == nil {
-		return ctx.Status(401).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusUnauthorized,
-			Error:  "You must be logged in with a Discord account to use this endpoint.",
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
+
 	}
 
 	discordProvider := discord.New(ctx, database, user, redirect, domain)
@@ -81,18 +75,18 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 
 	if len(providers) == 0 {
 		switch user.Provider {
-			case "discord":
-				return discordProvider.CreateUser()
+		case "discord":
+			return discordProvider.CreateUser()
 
-			case "lastfm":
-				return lastfmProvider.CreateUser()
+		case "lastfm":
+			return lastfmProvider.CreateUser()
 
-			default:
-				return ctx.Status(500).JSON(utils.Response[any]{
-					Result: nil,
-					Code:   http.StatusInternalServerError,
-					Error:  "Provider not supported",
-				})
+		default:
+			return ctx.Status(500).JSON(utils.Response[any]{
+				Result: nil,
+				Code:   http.StatusInternalServerError,
+				Error:  "Provider not supported",
+			})
 		}
 	} else {
 		switch user.Provider {
@@ -111,7 +105,6 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 		}
 	}
 
-	
 }
 
 func LoginHandler(ctx *fiber.Ctx) error {
@@ -132,7 +125,7 @@ func LogoutHandler(ctx *fiber.Ctx) error {
 	provider := ctx.Params("provider")
 
 	redirect := ctx.Query("redirect")
-	
+
 	if provider == "discord" {
 		if err := goth_fiber.Logout(ctx); err != nil {
 			log.Fatal(err)
@@ -140,7 +133,7 @@ func LogoutHandler(ctx *fiber.Ctx) error {
 
 		// clear cookie didnt work for some reason
 		ctx.Cookie(&fiber.Cookie{
-			Name: "token",
+			Name:  "token",
 			Value: "",
 		})
 
@@ -150,7 +143,7 @@ func LogoutHandler(ctx *fiber.Ctx) error {
 			return ctx.Status(200).JSON(utils.Response[any]{
 				Result: nil,
 				Code:   http.StatusOK,
-			});
+			})
 		}
 	}
 
@@ -163,11 +156,8 @@ func LogoutHandler(ctx *fiber.Ctx) error {
 	err := database.DB.From("providers").Delete().Eq("user", *discordUser.ID).Eq("type", provider).Execute(&deleted)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
+
 	}
 
 	if redirect != "" {
@@ -176,7 +166,7 @@ func LogoutHandler(ctx *fiber.Ctx) error {
 		return ctx.Status(200).JSON(utils.Response[any]{
 			Result: deleted,
 			Code:   http.StatusOK,
-		});
+		})
 	}
 }
 
@@ -185,11 +175,8 @@ func SessionHandler(ctx *fiber.Ctx) error {
 	claims, err := utils.GetClaimsFromToken(token)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})	
+		return utils.ErrorResponse(ctx, 500, err.Error())
+
 	}
 
 	return ctx.Status(200).JSON(utils.Response[utils.IProvider]{
@@ -219,11 +206,8 @@ func ProviderHandler(ctx *fiber.Ctx) error {
 	var provider utils.IProvider = providers[0]
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusNotFound,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
+
 	}
 
 	return ctx.JSON(utils.Response[utils.IProvider]{
@@ -242,11 +226,8 @@ func ProvidersHandler(ctx *fiber.Ctx) error {
 	err := database.DB.From("providers").Select("*").Eq("user", profile.ID).Execute(&providers)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
+
 	}
 
 	return ctx.Status(200).JSON(utils.Response[[]utils.IProvider]{
@@ -269,11 +250,8 @@ func StatusHandler(ctx *fiber.Ctx) error {
 	err := database.DB.From("blacklist").Select("*").Eq("user", *user.ID).Execute(&blacklist)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err.Error())
+
 	}
 
 	if len(blacklist) == 0 {
@@ -292,4 +270,96 @@ func StatusHandler(ctx *fiber.Ctx) error {
 		},
 		Code: http.StatusForbidden,
 	})
+}
+
+// gets all the user's data and returns it as an actual JSON file
+func DataHandler(ctx *fiber.Ctx) error {
+	user := ctx.Locals("user").(utils.IProvider)
+
+	var providers []utils.IProvider
+
+	database := db.New()
+
+	err := database.DB.From("providers").Select("*").Eq("user", *user.ID).Execute(&providers)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	var blacklist []utils.IBlacklist
+
+	err = database.DB.From("blacklist").Select("*").Eq("user", *user.ID).Execute(&blacklist)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	var profile utils.IProfile
+
+	err = database.DB.From("profiles").Select("*").Single().Eq("id", *user.ID).Execute(&profile)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	var moderationActions []utils.IBotModerationAction
+
+	err = database.DB.From("moderation_actions").Select("*").Eq("user", *user.ID).Execute(&moderationActions)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	var workspaceMemberships []utils.IWorkspaceMemberWithoutProfile
+
+	err = database.DB.From("workspace_members").Select("*, workspace(*)").Eq("profile", *user.ID).Execute(&workspaceMemberships)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	var workspaces []any
+
+	for _, workspaceMember := range workspaceMemberships {
+		workspaces = append(workspaces, workspaceMember.Workspace)
+	}
+
+	var bots []utils.IBot
+
+	err = database.DB.From("bots").Select("id, created_at, owner, region, settings, token, commands").Eq("owner", *user.ID).Execute(&bots)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	type FinalData struct {
+		AuthProviders        []utils.IProvider                      `json:"auth_providers"`
+		Blacklist            []utils.IBlacklist                     `json:"blacklist"`
+		Profile              utils.IProfile                         `json:"profile"`
+		BotModerationActions []utils.IBotModerationAction           `json:"bot_moderation_actions"`
+		WorkspaceMemberships []utils.IWorkspaceMemberWithoutProfile `json:"workspace_memberships"`
+		Workspaces           []any                                  `json:"workspaces"`
+		Bots                 []utils.IBot                           `json:"bots"`
+	}
+
+	var finalData FinalData = FinalData{
+		AuthProviders:        providers,
+		Blacklist:            blacklist,
+		Profile:              profile,
+		BotModerationActions: moderationActions,
+		WorkspaceMemberships: workspaceMemberships,
+		Workspaces:           workspaces,
+		Bots:                 bots,
+	}
+
+	// convert finalData to byte and return it
+	data, err := json.Marshal(finalData)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Response().Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.json", profile.PreferredName))
+	return ctx.Status(200).Send(data)
 }
