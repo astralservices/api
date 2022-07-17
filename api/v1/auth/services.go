@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/astralservices/api/api/v1/auth/providers/discord"
 	"github.com/astralservices/api/api/v1/auth/providers/lastfm"
@@ -216,6 +217,86 @@ func ProviderHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+func UpdateProviderHandler(ctx *fiber.Ctx) error {
+	providerId := ctx.Params("provider")
+
+	redirect := ctx.FormValue("redirect")
+
+	provider := ctx.Locals("user").(utils.IProvider)
+
+	database := db.New()
+
+	if providerId == "discord" {
+		client := fiber.AcquireClient()
+
+		agent := client.Get("https://discord.com/api/v9/users/@me")
+
+		agent.Add("Authorization", "Bearer "+provider.ProviderAccessToken)
+
+		req, res := agent.Request(), fiber.AcquireResponse()
+
+		err := agent.Do(req, res)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+
+		if res.StatusCode() != 200 {
+			return utils.ErrorResponse(ctx, 422, "Invalid token")
+		}
+
+		var discordUser utils.IDiscordApiUser
+
+		err = json.Unmarshal(res.Body(), &discordUser)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err.Error())
+		}
+
+		isAnimated := strings.HasPrefix(*discordUser.Avatar, "a_")
+		var discordAvatar string
+
+		if isAnimated {
+			discordAvatar = "https://cdn.discordapp.com/avatars/" + discordUser.ID + "/" + *discordUser.Avatar + ".gif"
+		} else {
+			discordAvatar = "https://cdn.discordapp.com/avatars/" + discordUser.ID + "/" + *discordUser.Avatar + ".webp"
+		}
+
+		isBannerAnimated := strings.HasPrefix(*discordUser.Banner, "a_")
+		var discordBanner string
+
+		if isBannerAnimated {
+			discordBanner = "https://cdn.discordapp.com/banners/" + discordUser.ID + "/" + *discordUser.Banner + ".gif"
+		} else {
+			discordBanner = "https://cdn.discordapp.com/banners/" + discordUser.ID + "/" + *discordUser.Banner + ".webp"
+		}
+
+		database.DB.From("providers").Update(map[string]interface{}{
+			"provider_avatar_url": discordAvatar,
+			"provider_email":      discordUser.Email,
+		}).Eq("id", *provider.ID).Execute(nil)
+
+		database.DB.From("profiles").Update(map[string]interface{}{
+			"email":          discordUser.Email,
+			"preferred_name": discordUser.Username,
+			"identity_data":  provider.ProviderData,
+			"avatar_url":     discordAvatar,
+			"banner":         discordBanner,
+		}).Eq("id", provider.User).Execute(nil)
+
+		if redirect != "" {
+			return ctx.Redirect(redirect)
+		}
+
+		return ctx.JSON(utils.Response[any]{
+			Result: nil,
+			Code:   http.StatusOK,
+		})
+	} else {
+		return utils.ErrorResponse(ctx, 500, "Provider not supported")
+	}
+}
+
 func ProvidersHandler(ctx *fiber.Ctx) error {
 	profile := ctx.Locals("profile").(utils.IProfile)
 
@@ -362,4 +443,53 @@ func DataHandler(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Response().Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.json", profile.PreferredName))
 	return ctx.Status(200).Send(data)
+}
+
+func DeleteAccountHandler(ctx *fiber.Ctx) error {
+	user := ctx.Locals("user").(utils.IProvider)
+	redirect := ctx.FormValue("redirect")
+
+	if err := goth_fiber.Logout(ctx); err != nil {
+		log.Fatal(err)
+	}
+
+	ctx.Cookie(&fiber.Cookie{
+		Name:  "token",
+		Value: "",
+	})
+
+	database := db.New()
+
+	err := database.DB.From("providers").Delete().Eq("user", *user.ID).Execute(nil)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	err = database.DB.From("profiles").Delete().Eq("id", *user.ID).Execute(nil)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	err = database.DB.From("workspace_members").Delete().Eq("profile", *user.ID).Execute(nil)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	err = database.DB.From("bots").Delete().Eq("owner", *user.ID).Execute(nil)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	if redirect != "" {
+		return ctx.Redirect(redirect)
+	}
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: nil,
+		Code:   http.StatusOK,
+	})
 }

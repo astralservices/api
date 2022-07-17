@@ -39,8 +39,10 @@ func AuthHandler(router fiber.Router) {
 	authed := router.Use(utils.AuthMiddleware, utils.ProfileMiddleware)
 	authed.Get("/providers", ProvidersHandler)
 	authed.Get("/providers/:provider", ProviderHandler)
+	authed.Post("/providers/:provider", UpdateProviderHandler)
 	authed.Get("/status", StatusHandler)
 	authed.Get("/gdpr", DataHandler)
+	authed.Post("/delete", DeleteAccountHandler)
 }
 
 func InitGoth() {
