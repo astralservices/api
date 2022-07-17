@@ -1,45 +1,55 @@
 package v1
 
 import (
-	"encoding/json"
 	"net/http"
+	"os"
 	"sort"
 
-	auth "github.com/astralservices/api/api/v1/auth"
+	"github.com/astralservices/api/api/v1/auth"
+	"github.com/astralservices/api/api/v1/workspaces"
 	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
-	"github.com/gorilla/mux"
+	"github.com/aybabtme/orderedjson"
+	"github.com/gofiber/fiber/v2"
 )
 
-func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := json.Marshal(utils.Response[struct {
-		Message string `json:"message"`
-	}]{
-		Result: struct {
-			Message string "json:\"message\""
-		}{Message: "API v1 is running!"},
-		Code: http.StatusOK,
-	})
+func V1Handler(router fiber.Router) {
+	router.Get("/stats", StatsHandler)
+	router.Get("/regions", RegionsHandler)
+	router.Get("/team", TeamHandler)
+	router.Get("/plans", PlansHandler)
+	router.Get("/integrations", IntegrationsHandler)
+	router.Get("/integrations/:id", IntegrationHandler)
 
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.Write(data)
+	auth.AuthHandler(router.Group("/auth").Use(utils.AuthInjectorMiddleware))
+	workspaces.WorkspacesHandler(router.Group("/workspaces"))
 }
 
-// Statistics
-// @Summary Gets statistics for Astral Services
-// @Description 
-// @ID stats
-// @Tags Public
-// @Accept  json
-// @Produce  json
-// @Success 200 {array} utils.IStatistic "OK"
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /stats [get]
-func StatsHandler(w http.ResponseWriter, r *http.Request) {
+func PlansHandler(c *fiber.Ctx) error {
+	var plans []utils.IPlan
+
+	database := db.New()
+
+	err := database.DB.From("plans").Select("*").Execute(&plans)
+
+	if err != nil {
+		return c.JSON(utils.Response[any]{
+			Error: err.Error(),
+			Code:  http.StatusInternalServerError,
+		})
+	}
+
+	sort.Slice(plans, func(i, j int) bool {
+		return plans[i].PriceMonthly < plans[j].PriceMonthly
+	})
+
+	return c.JSON(utils.Response[[]utils.IPlan]{
+		Result: plans,
+		Code:   http.StatusOK,
+	})
+}
+
+func StatsHandler(c *fiber.Ctx) error {
 	var stats []utils.IStatistic
 
 	database := db.New()
@@ -47,149 +57,136 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 	err := database.DB.From("stats").Select("*").Execute(&stats)
 
 	if err != nil {
-		errorData, err := json.Marshal(utils.Response[any]{
+		return c.JSON(utils.Response[any]{
 			Error: err.Error(),
 			Code:  http.StatusInternalServerError,
 		})
-
-		if err != nil {
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		w.Write(errorData)
-
-		return
 	}
 
-	data, err := json.Marshal(utils.Response[[]utils.IStatistic]{
+	return c.JSON(utils.Response[[]utils.IStatistic]{
 		Result: stats,
 		Code:   http.StatusOK,
 	})
-
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.Write(data)
 }
 
-// Regions
-// @Summary Get Astral's regions
-// @Description 
-// @ID regions
-// @Tags Public
-// @Accept  json
-// @Produce  json
-// @Success 200 {array} utils.IRegion "OK"
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /regions [get]
-func RegionsHandler(w http.ResponseWriter, r *http.Request) {
-	var regions []utils.IRegion
+func RegionsHandler(c *fiber.Ctx) error {
+	var regions []*utils.IRegion
 
 	database := db.New()
 
 	err := database.DB.From("regions").Select("id, flag, city, region, country, prettyName, lat, long, maxBots").Execute(&regions)
 
 	if err != nil {
-		errorData, err := json.Marshal(utils.Response[any]{
+		return c.JSON(utils.Response[any]{
 			Error: err.Error(),
 			Code:  http.StatusInternalServerError,
 		})
-
-		if err != nil {
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		w.Write(errorData)
-
-		return
 	}
 
-	// remove the region "localhost"
-	for i, region := range regions {
-		if region.ID == "localhost" {
-			regions = append(regions[:i], regions[i+1:]...)
-			break
+	if os.Getenv("ENV") != "development" {
+		// remove the region "localhost"
+		for i, region := range regions {
+			if region.ID == "localhost" {
+				regions = append(regions[:i], regions[i+1:]...)
+				break
+			}
+		}
+
+	}
+
+	var bots []struct {
+		Region string `json:"region"`
+	}
+
+	err = database.DB.From("bots").Select("region").Execute(&bots)
+
+	if err != nil {
+		return c.JSON(utils.Response[any]{
+			Error: err.Error(),
+			Code:  http.StatusInternalServerError,
+		})
+	}
+
+	// attach the number of bots to each region
+	for _, region := range regions {
+		region.Bots = 0
+		for _, bot := range bots {
+			if bot.Region == region.ID {
+				region.Bots++
+			}
 		}
 	}
 
-	data, err := json.Marshal(utils.Response[[]utils.IRegion]{
+	return c.JSON(utils.Response[[]*utils.IRegion]{
 		Result: regions,
 		Code:   http.StatusOK,
 	})
-
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.Write(data)
 }
 
-// Team
-// @Summary Get Astral's team members
-// @Description 
-// @ID team
-// @Tags Public
-// @Accept  json
-// @Produce  json
-// @Success 200 {array} utils.ITeamMember "OK"
-// @Failure 500 {object} utils.DocsAPIError "Internal Server Error"
-// @Router /team [get]
-func TeamHandler(w http.ResponseWriter, r *http.Request) {
-	var teams []utils.ITeamMember
+func TeamHandler(c *fiber.Ctx) error {
+	var teams []any
 
 	database := db.New()
 
 	err := database.DB.From("teamMembers").Select("*, user(identity_data)").Execute(&teams)
 
 	if err != nil {
-		errorData, err := json.Marshal(utils.Response[any]{
+		return c.JSON(utils.Response[any]{
 			Error: err.Error(),
 			Code:  http.StatusInternalServerError,
 		})
-
-		if err != nil {
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		w.Write(errorData)
-
-		return
 	}
 
-	sort.Slice(teams, func(i, j int) bool {
-		return teams[i].ID < teams[j].ID
-	})
-
-	data, err := json.Marshal(utils.Response[[]utils.ITeamMember]{
+	return c.JSON(utils.Response[any]{
 		Result: teams,
 		Code:   http.StatusOK,
 	})
-
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.Write(data)
 }
 
-func New(ref *mux.Router) *mux.Router {
-	r := ref.PathPrefix("/api/v1").Subrouter()
+func IntegrationsHandler(c *fiber.Ctx) error {
+	var integrations []any
 
-	r.StrictSlash(true)
+	database := db.New()
 
-	r.HandleFunc("/", IndexHandler)
-	r.HandleFunc("/stats", StatsHandler)
-	r.HandleFunc("/regions", RegionsHandler)
-	r.HandleFunc("/team", TeamHandler)
+	err := database.DB.From("integrations").Select("*").Execute(&integrations)
 
-	r.Handle("/auth", auth.New(r))
+	if err != nil {
+		return c.JSON(utils.Response[any]{
+			Error: err.Error(),
+			Code:  http.StatusInternalServerError,
+		})
+	}
 
-	return r
+	return c.JSON(utils.Response[any]{
+		Result: integrations,
+		Code:   http.StatusOK,
+	})
+}
+
+func IntegrationHandler(c *fiber.Ctx) error {
+	var integrations []orderedjson.Map
+	var integration any
+	id := c.Params("id")
+
+	database := db.New()
+
+	err := database.DB.From("integrations").Select("*").Eq("id", id).Execute(&integrations)
+
+	if err != nil {
+		return c.JSON(utils.Response[any]{
+			Error: err.Error(),
+			Code:  http.StatusInternalServerError,
+		})
+	}
+
+	if len(integrations) == 0 {
+		return utils.ErrorResponse(c, http.StatusNotFound, "Integration not found")
+	}
+
+	integration = integrations[0]
+
+	return c.JSON(utils.Response[any]{
+		Result: integration,
+		Code:   http.StatusOK,
+	})
 }

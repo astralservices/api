@@ -1,29 +1,53 @@
 package auth
 
 import (
+	"os"
+
+	"github.com/astralservices/api/api/v1/auth/providers/roblox"
+	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
-	"github.com/gorilla/mux"
+	"github.com/gofiber/fiber/v2"
+	"github.com/markbates/goth"
+	"github.com/markbates/goth/providers/discord"
+	"github.com/markbates/goth/providers/lastfm"
+	"github.com/shareed2k/goth_fiber"
 )
 
-func New(ref *mux.Router) *mux.Router {
-	r := ref.PathPrefix("/auth").Subrouter()
+func AuthHandler(router fiber.Router) {
+	router.Get("/callback/:provider", CallbackHandler)
+	router.Post("/login/:provider", goth_fiber.BeginAuthHandler)
+	router.Get("/login/:provider", func(c *fiber.Ctx) error {
+		redirect := c.Query("redirect")
+		provider := c.Params("provider")
 
-	r.StrictSlash(true)
+		c.Cookie(&fiber.Cookie{
+			Name:  "redirect",
+			Value: redirect,
+		})
 
-	r.HandleFunc("/", IndexHandler)
-	r.HandleFunc("/callback/{provider}", CallbackHandler).Methods("GET", "OPTIONS", "POST")
-	r.HandleFunc("/login/{provider}", LoginHandler).Methods("GET", "OPTIONS", "POST")
-	r.HandleFunc("/logout/{provider}", LogoutHandler).Methods("GET", "OPTIONS", "POST")
+		roblox := roblox.New(c, db.New(), redirect)
 
-	gated := r.PathPrefix("/providers").Subrouter()
-	gated.Use(utils.AuthMiddleware)
-	gated.Use(utils.ProfileMiddleware)
-	gated.HandleFunc("/", ProvidersHandler).Methods("GET", "OPTIONS")
-	gated.HandleFunc("/{provider}", ProviderHandler).Methods("GET", "POST", "OPTIONS")
+		if provider == "roblox" {
+			return roblox.GenerateCodeForUser()
+		}
 
-	status := r.PathPrefix("/status").Subrouter()
-	status.Use(utils.AuthMiddleware)
-	status.HandleFunc("/", StatusHandler)
+		return goth_fiber.BeginAuthHandler(c)
+	})
+	router.Get("/logout/:provider", LogoutHandler)
+	router.Get("/session", SessionHandler)
 
-	return r
+	authed := router.Use(utils.AuthMiddleware, utils.ProfileMiddleware)
+	authed.Get("/providers", ProvidersHandler)
+	authed.Get("/providers/:provider", ProviderHandler)
+	authed.Post("/providers/:provider", UpdateProviderHandler)
+	authed.Get("/status", StatusHandler)
+	authed.Get("/gdpr", DataHandler)
+	authed.Post("/delete", DeleteAccountHandler)
+}
+
+func InitGoth() {
+	goth.UseProviders(
+		discord.New(os.Getenv("DISCORD_CLIENT_ID"), os.Getenv("DISCORD_CLIENT_SECRET"), utils.GetCallbackURL("discord"), discord.ScopeIdentify, discord.ScopeEmail, discord.ScopeGuilds),
+		lastfm.New(os.Getenv("LASTFM_KEY"), os.Getenv("LASTFM_SECRET"), utils.GetCallbackURL("lastfm")),
+	)
 }
