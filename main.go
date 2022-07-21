@@ -79,7 +79,7 @@ func main() {
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
 		log.Infoln("Starting server on port " + port)
-		if err := app.Listen("127.0.0.1:" + port); err != nil {
+		if err := app.Listen("0.0.0.0:" + port); err != nil {
 			log.Fatalln(err)
 		}
 	}()
