@@ -46,5 +46,8 @@ WORKDIR /app
 ### Copy built binary application from 'builder' image
 COPY --from=builder /app/main .
 
+### Copy the certs from builder
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
 ### Run the binary application
 CMD ["/app/main"]
