@@ -67,8 +67,7 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 	}
 
 	if user.Provider != "discord" && discordUser == nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
-
+		return utils.ErrorResponse(ctx, 500, "Discord user not found")
 	}
 
 	discordProvider := discord.New(ctx, database, user, redirect, domain)

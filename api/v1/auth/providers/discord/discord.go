@@ -108,7 +108,7 @@ func (p DiscordProvider) CreateUser() error {
 			Value:    TokenString,
 			Expires:  time.Now().Add(time.Hour * 24),
 			Domain:   domain,
-			HTTPOnly: true,
+			HTTPOnly: os.Getenv("ENV") != "production",
 			Secure:   os.Getenv("ENV") == "production",
 		})
 
