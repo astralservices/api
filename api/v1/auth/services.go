@@ -459,19 +459,19 @@ func DeleteAccountHandler(ctx *fiber.Ctx) error {
 
 	database := db.New()
 
-	err := database.DB.From("providers").Delete().Eq("user", *user.ID).Execute(nil)
+	err := database.DB.From("workspace_members").Delete().Eq("profile", *user.ID).Execute(nil)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err.Error())
+	}
+
+	err = database.DB.From("providers").Delete().Eq("user", *user.ID).Execute(nil)
 
 	if err != nil {
 		return utils.ErrorResponse(ctx, 500, err.Error())
 	}
 
 	err = database.DB.From("profiles").Delete().Eq("id", *user.ID).Execute(nil)
-
-	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
-	}
-
-	err = database.DB.From("workspace_members").Delete().Eq("profile", *user.ID).Execute(nil)
 
 	if err != nil {
 		return utils.ErrorResponse(ctx, 500, err.Error())
