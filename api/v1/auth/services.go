@@ -63,7 +63,7 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 	if os.Getenv("ENV") == "development" {
 		domain = "localhost"
 	} else {
-		domain = ctx.BaseURL()
+		domain = "astralapp.io"
 	}
 
 	if user.Provider != "discord" && discordUser == nil {
