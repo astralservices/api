@@ -13,6 +13,7 @@ import (
 	"github.com/astralservices/api/api/v1/auth"
 	_ "github.com/astralservices/api/docs"
 	"github.com/astralservices/api/utils"
+	"github.com/getsentry/sentry-go"
 	"github.com/goccy/go-json"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -76,6 +77,10 @@ func main() {
 		port = "3000"
 	}
 
+	sentry.Init(sentry.ClientOptions{
+		Dsn: "https://6fe272ef81454aec990e3f526f51dd7f@gt.astralapp.io/1",
+	})
+
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
 		log.Infoln("Starting server on port " + port)
@@ -101,6 +106,7 @@ func main() {
 	// Optionally, you could run srv.Shutdown in a goroutine and block on
 	// <-ctx.Done() if your application should wait for other services
 	// to finalize based on context cancellation.
+	sentry.Flush(time.Second * 5)
 	log.Println("Shutting down")
 	os.Exit(0)
 }

@@ -23,6 +23,7 @@ require (
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/aybabtme/flatjson v0.1.1 // indirect
+	github.com/getsentry/sentry-go v0.13.0 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gorilla/sessions v1.1.1 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
