@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	db "github.com/astralservices/api/supabase"
+	"github.com/getsentry/sentry-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/handlers"
@@ -244,13 +246,13 @@ func WorkspaceIntegrationMiddleware(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_integrations").Select("*").Eq("workspace", *workspace.ID).Eq("integration", integrationId).Execute(&integrations)
 
 	if err != nil {
-		return ErrorResponse(ctx, 500, err.Error())
+		return ErrorResponse(ctx, 500, err, false)
 	}
 
 	fmt.Printf("%+v\n", integrations)
 
 	if len(integrations) == 0 {
-		return ErrorResponse(ctx, 404, "Integration not found")
+		return ErrorResponse(ctx, 404, errors.New("Integration not found"), true)
 	}
 
 	ctx.Locals("integration", integrations[0])
@@ -258,17 +260,21 @@ func WorkspaceIntegrationMiddleware(ctx *fiber.Ctx) error {
 	return ctx.Next()
 }
 
-func ErrorResponse(ctx *fiber.Ctx, code int, message string) error {
+func ErrorResponse(ctx *fiber.Ctx, code int, err error, isManual bool) error {
 	redirect := ctx.FormValue("redirect")
 
+	if os.Getenv("ENV") == "production" && !isManual {
+		sentry.CaptureException(err)
+	}
+
 	if redirect != "" {
-		return ctx.Redirect(redirect + "?error=" + message)
+		return ctx.Redirect(redirect + "?error=" + err.Error())
 	}
 
 	return ctx.Status(500).JSON(Response[any]{
 		Result: nil,
 		Code:   code,
-		Error:  message,
+		Error:  err.Error(),
 	})
 }
 
