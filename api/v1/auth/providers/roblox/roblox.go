@@ -1,6 +1,7 @@
 package roblox
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,7 +17,7 @@ type RobloxProvider struct {
 	database *supabase.Client
 	redirect string
 	domain   string
-	roblox *goblox.Client
+	roblox   *goblox.Client
 }
 
 func New(c *fiber.Ctx, database *supabase.Client, redirect string) RobloxProvider {
@@ -25,7 +26,7 @@ func New(c *fiber.Ctx, database *supabase.Client, redirect string) RobloxProvide
 		ctx:      c,
 		database: database,
 		redirect: redirect,
-		roblox: roblox,
+		roblox:   roblox,
 	}
 	return provider
 }
@@ -38,19 +39,11 @@ func (p RobloxProvider) GenerateCodeForUser() error {
 	user, userErr := roblox.Users.GetUserByUsername(userName)
 
 	if userErr != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  userErr.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, userErr, false)
 	}
 
 	if user.ID == 0 {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  "User not found",
-		})
+		return utils.ErrorResponse(ctx, 404, errors.New("User not found"), true)
 	}
 
 	discordUser := ctx.Locals("user").(utils.IProvider)
@@ -66,27 +59,23 @@ func (p RobloxProvider) GenerateCodeForUser() error {
 	code := strings.Join(codes, " ")
 
 	insertErr := database.DB.From("providers").Insert(map[string]interface{}{
-		"type":                   "roblox",
-		"user":                   discordUser.ID,
-		"provider_id":            user.ID,
-		"provider_data": 		  map[string]interface{}{
-			"status": "pending",
-			"code": code,
+		"type":        "roblox",
+		"user":        discordUser.ID,
+		"provider_id": user.ID,
+		"provider_data": map[string]interface{}{
+			"status":   "pending",
+			"code":     code,
 			"username": user.Name,
 		},
 	}).Execute(&out)
 
 	if insertErr != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  insertErr.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, insertErr, false)
 	}
 
 	if redirect != "" {
 		ctx.ClearCookie("redirect")
-		return ctx.Redirect(redirect+"?code="+code)
+		return ctx.Redirect(redirect + "?code=" + code)
 	}
 
 	return ctx.Status(200).JSON(utils.Response[any]{
@@ -105,21 +94,13 @@ func (p RobloxProvider) VerifyUser() error {
 	err := database.DB.From("providers").Select("*").Eq("provider_data->>code", code).Execute(&out)
 
 	if err != nil {
-		if redirect != "" {
-			ctx.ClearCookie("redirect")
-			return ctx.Redirect(redirect+"?error="+err.Error())
-		}
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if len(out) == 0 {
 		if redirect != "" {
 			ctx.ClearCookie("redirect")
-			return ctx.Redirect(redirect+"?error=Code not found")
+			return ctx.Redirect(redirect + "?error=Code not found")
 		}
 		return ctx.Status(500).JSON(utils.Response[any]{
 			Result: nil,
@@ -131,54 +112,22 @@ func (p RobloxProvider) VerifyUser() error {
 	if out[0].ProviderData["status"] == "pending" {
 		id, err := strconv.ParseInt(out[0].ProviderID, 10, 64)
 		if err != nil {
-			if redirect != "" {
-				ctx.ClearCookie("redirect")
-				return ctx.Redirect(redirect+"/error?error="+err.Error())
-			}
-			return ctx.Status(500).JSON(utils.Response[any]{
-				Result: nil,
-				Code:   http.StatusInternalServerError,
-				Error:  err.Error(),
-			})
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 		user, err := roblox.Users.GetUserById(id)
 
 		if err != nil {
-			if redirect != "" {
-				ctx.ClearCookie("redirect")
-				return ctx.Redirect(redirect+"/error?error="+err.Error())
-			}
-			return ctx.Status(500).JSON(utils.Response[any]{
-				Result: nil,
-				Code:   http.StatusInternalServerError,
-				Error:  err.Error(),
-			})
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 
 		if user.ID == 0 {
-			if redirect != "" {
-				ctx.ClearCookie("redirect")
-				return ctx.Redirect(redirect+"/error?error=User not found")
-			}
-			return ctx.Status(500).JSON(utils.Response[any]{
-				Result: nil,
-				Code:   http.StatusInternalServerError,
-				Error:  "User not found",
-			})
+			return utils.ErrorResponse(ctx, 404, errors.New("User not found"), true)
 		}
 
 		authCode := ctx.Query("code")
 
 		if !strings.Contains(user.Description, authCode) {
-			if redirect != "" {
-				ctx.ClearCookie("redirect")
-				return ctx.Redirect(redirect+"/error?error=Invalid Code")
-			}
-			return ctx.Status(500).JSON(utils.Response[any]{
-				Result: nil,
-				Code:   http.StatusInternalServerError,
-				Error:  "Invalid code",
-			})
+			return utils.ErrorResponse(ctx, 500, errors.New("Invalid code"), true)
 		}
 
 		out[0].ProviderData["status"] = "verified"
@@ -187,11 +136,7 @@ func (p RobloxProvider) VerifyUser() error {
 		}).Eq("id", *out[0].ID).Execute(&out)
 
 		if err != nil {
-			return ctx.Status(500).JSON(utils.Response[any]{
-				Result: nil,
-				Code:   http.StatusInternalServerError,
-				Error:  err.Error(),
-			})
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 
 		if redirect != "" {
@@ -205,14 +150,5 @@ func (p RobloxProvider) VerifyUser() error {
 		})
 	}
 
-	if redirect != "" {
-		ctx.ClearCookie("redirect")
-		return ctx.Redirect(redirect+"/error?error=Code already verified")
-	}
-
-	return ctx.Status(500).JSON(utils.Response[any]{
-		Result: nil,
-		Code:   http.StatusInternalServerError,
-		Error:  "Code already verified",
-	})
+	return utils.ErrorResponse(ctx, 500, errors.New("Code already verified"), true)
 }

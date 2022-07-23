@@ -2,11 +2,14 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/astralservices/api/api/v1/auth/providers/discord"
 	"github.com/astralservices/api/api/v1/auth/providers/lastfm"
@@ -42,7 +45,7 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 	user, err := goth_fiber.CompleteUserAuth(ctx)
 
 	if err != nil {
-		log.Fatal(err)
+		return utils.ErrorResponse(ctx, 400, err, false)
 	}
 
 	var providers []utils.IProvider
@@ -54,8 +57,7 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 	err = database.DB.From("providers").Select("*").Eq("provider_id", user.UserID).Eq("type", user.Provider).Execute(&providers)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
-
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	var domain string
@@ -67,7 +69,7 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 	}
 
 	if user.Provider != "discord" && discordUser == nil {
-		return utils.ErrorResponse(ctx, 500, "Discord user not found")
+		return utils.ErrorResponse(ctx, 500, errors.New("Discord user not found"), true)
 	}
 
 	discordProvider := discord.New(ctx, database, user, redirect, domain)
@@ -108,12 +110,6 @@ func CallbackHandler(ctx *fiber.Ctx) error {
 }
 
 func LoginHandler(ctx *fiber.Ctx) error {
-	provider := ctx.Params("provider")
-
-	if provider == "roblox" {
-		// TODO: add custom login handler for roblox
-	}
-
 	if gothUser, err := goth_fiber.CompleteUserAuth(ctx); err == nil {
 		return ctx.SendString(gothUser.Email)
 	} else {
@@ -131,10 +127,22 @@ func LogoutHandler(ctx *fiber.Ctx) error {
 			log.Fatal(err)
 		}
 
+		var domain string
+
+		if os.Getenv("ENV") == "development" {
+			domain = "localhost"
+		} else {
+			domain = "astralapp.io"
+		}
+
 		// clear cookie didnt work for some reason
 		ctx.Cookie(&fiber.Cookie{
-			Name:  "token",
-			Value: "",
+			Name:     "token",
+			Value:    "",
+			Expires:  time.Now().Add(time.Hour * 24),
+			Domain:   domain,
+			HTTPOnly: os.Getenv("ENV") != "production",
+			Secure:   os.Getenv("ENV") == "production",
 		})
 
 		if redirect != "" {
@@ -156,7 +164,7 @@ func LogoutHandler(ctx *fiber.Ctx) error {
 	err := database.DB.From("providers").Delete().Eq("user", *discordUser.ID).Eq("type", provider).Execute(&deleted)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 
 	}
 
@@ -175,8 +183,7 @@ func SessionHandler(ctx *fiber.Ctx) error {
 	claims, err := utils.GetClaimsFromToken(token)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
-
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	return ctx.Status(200).JSON(utils.Response[utils.IProvider]{
@@ -206,8 +213,7 @@ func ProviderHandler(ctx *fiber.Ctx) error {
 	var provider utils.IProvider = providers[0]
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
-
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	return ctx.JSON(utils.Response[utils.IProvider]{
@@ -237,11 +243,11 @@ func UpdateProviderHandler(ctx *fiber.Ctx) error {
 		err := agent.Do(req, res)
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 
 		if res.StatusCode() != 200 {
-			return utils.ErrorResponse(ctx, 422, "Invalid token")
+			return utils.ErrorResponse(ctx, 422, errors.New("Invalid token"), true)
 		}
 
 		var discordUser utils.IDiscordApiUser
@@ -249,39 +255,85 @@ func UpdateProviderHandler(ctx *fiber.Ctx) error {
 		err = json.Unmarshal(res.Body(), &discordUser)
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 
-		isAnimated := strings.HasPrefix(*discordUser.Avatar, "a_")
 		var discordAvatar string
 
-		if isAnimated {
-			discordAvatar = "https://cdn.discordapp.com/avatars/" + discordUser.ID + "/" + *discordUser.Avatar + ".gif"
+		if discordUser.Avatar != nil {
+
+			isAnimated := strings.HasPrefix(*discordUser.Avatar, "a_")
+
+			if isAnimated {
+				discordAvatar = "https://cdn.discordapp.com/avatars/" + discordUser.ID + "/" + *discordUser.Avatar + ".gif"
+			} else {
+				discordAvatar = "https://cdn.discordapp.com/avatars/" + discordUser.ID + "/" + *discordUser.Avatar + ".webp"
+			}
 		} else {
-			discordAvatar = "https://cdn.discordapp.com/avatars/" + discordUser.ID + "/" + *discordUser.Avatar + ".webp"
+			modulus, err := strconv.ParseInt(discordUser.Discriminator, 10, 64)
+			if err != nil {
+				return utils.ErrorResponse(ctx, 500, err, false)
+			}
+			discordAvatar = "https://cdn.discordapp.com/embed/avatars/" + strconv.FormatInt(modulus%5, 10) + ".png"
 		}
 
-		isBannerAnimated := strings.HasPrefix(*discordUser.Banner, "a_")
 		var discordBanner string
 
-		if isBannerAnimated {
-			discordBanner = "https://cdn.discordapp.com/banners/" + discordUser.ID + "/" + *discordUser.Banner + ".gif"
+		if discordUser.Banner != nil {
+
+			isBannerAnimated := strings.HasPrefix(*discordUser.Banner, "a_")
+
+			if isBannerAnimated {
+				discordBanner = "https://cdn.discordapp.com/banners/" + discordUser.ID + "/" + *discordUser.Banner + ".gif"
+			} else {
+				discordBanner = "https://cdn.discordapp.com/banners/" + discordUser.ID + "/" + *discordUser.Banner + ".webp"
+			}
 		} else {
-			discordBanner = "https://cdn.discordapp.com/banners/" + discordUser.ID + "/" + *discordUser.Banner + ".webp"
+			discordBanner = ""
 		}
 
-		database.DB.From("providers").Update(map[string]interface{}{
+		err = database.DB.From("providers").Update(map[string]interface{}{
 			"provider_avatar_url": discordAvatar,
 			"provider_email":      discordUser.Email,
 		}).Eq("id", *provider.ID).Execute(nil)
 
-		database.DB.From("profiles").Update(map[string]interface{}{
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err, false)
+		}
+
+		err = database.DB.From("profiles").Update(map[string]interface{}{
 			"email":          discordUser.Email,
 			"preferred_name": discordUser.Username,
 			"identity_data":  provider.ProviderData,
 			"avatar_url":     discordAvatar,
 			"banner":         discordBanner,
-		}).Eq("id", provider.User).Execute(nil)
+		}).Eq("id", *provider.ID).Execute(nil)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err, false)
+		}
+
+		provider.ProviderAvatarUrl = &discordAvatar
+		provider.ProviderEmail = discordUser.Email
+
+		TokenString, _ := utils.CreateToken(provider.ProviderID, provider)
+
+		var domain string
+
+		if os.Getenv("ENV") == "development" {
+			domain = "localhost"
+		} else {
+			domain = "astralapp.io"
+		}
+
+		ctx.Cookie(&fiber.Cookie{
+			Name:     "token",
+			Value:    TokenString,
+			Expires:  time.Now().Add(time.Hour * 24),
+			Domain:   domain,
+			HTTPOnly: os.Getenv("ENV") != "production",
+			Secure:   os.Getenv("ENV") == "production",
+		})
 
 		if redirect != "" {
 			return ctx.Redirect(redirect)
@@ -292,7 +344,7 @@ func UpdateProviderHandler(ctx *fiber.Ctx) error {
 			Code:   http.StatusOK,
 		})
 	} else {
-		return utils.ErrorResponse(ctx, 500, "Provider not supported")
+		return utils.ErrorResponse(ctx, 500, errors.New("Provider not supported"), true)
 	}
 }
 
@@ -306,7 +358,7 @@ func ProvidersHandler(ctx *fiber.Ctx) error {
 	err := database.DB.From("providers").Select("*").Eq("user", profile.ID).Execute(&providers)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 
 	}
 
@@ -330,7 +382,7 @@ func StatusHandler(ctx *fiber.Ctx) error {
 	err := database.DB.From("blacklist").Select("*").Eq("user", *user.ID).Execute(&blacklist)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 
 	}
 
@@ -363,7 +415,7 @@ func DataHandler(ctx *fiber.Ctx) error {
 	err := database.DB.From("providers").Select("*").Eq("user", *user.ID).Execute(&providers)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	var blacklist []utils.IBlacklist
@@ -371,7 +423,7 @@ func DataHandler(ctx *fiber.Ctx) error {
 	err = database.DB.From("blacklist").Select("*").Eq("user", *user.ID).Execute(&blacklist)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	var profile utils.IProfile
@@ -379,7 +431,7 @@ func DataHandler(ctx *fiber.Ctx) error {
 	err = database.DB.From("profiles").Select("*").Single().Eq("id", *user.ID).Execute(&profile)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	var moderationActions []utils.IBotModerationAction
@@ -387,7 +439,7 @@ func DataHandler(ctx *fiber.Ctx) error {
 	err = database.DB.From("moderation_actions").Select("*").Eq("user", *user.ID).Execute(&moderationActions)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	var workspaceMemberships []utils.IWorkspaceMemberWithoutProfile
@@ -395,7 +447,7 @@ func DataHandler(ctx *fiber.Ctx) error {
 	err = database.DB.From("workspace_members").Select("*, workspace(*)").Eq("profile", *user.ID).Execute(&workspaceMemberships)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	var workspaces []any
@@ -409,7 +461,7 @@ func DataHandler(ctx *fiber.Ctx) error {
 	err = database.DB.From("bots").Select("id, created_at, owner, region, settings, token, commands").Eq("owner", *user.ID).Execute(&bots)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	type FinalData struct {
@@ -436,7 +488,7 @@ func DataHandler(ctx *fiber.Ctx) error {
 	data, err := json.Marshal(finalData)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -462,25 +514,25 @@ func DeleteAccountHandler(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_members").Delete().Eq("profile", *user.ID).Execute(nil)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
-	err = database.DB.From("providers").Delete().Eq("user", *user.ID).Execute(nil)
+	err = database.DB.From("providers").Delete().Eq("id", *user.ID).Execute(nil)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	err = database.DB.From("profiles").Delete().Eq("id", *user.ID).Execute(nil)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	err = database.DB.From("bots").Delete().Eq("owner", *user.ID).Execute(nil)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if redirect != "" {

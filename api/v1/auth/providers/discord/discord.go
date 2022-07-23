@@ -75,11 +75,7 @@ func (p DiscordProvider) CreateUser() error {
 	customer, err := customer.New(userParams)
 
 	if err != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  err.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	profileErr := database.DB.From("profiles").Insert(map[string]interface{}{
@@ -93,11 +89,7 @@ func (p DiscordProvider) CreateUser() error {
 	}).Execute(&profile)
 
 	if profileErr != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  profileErr.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, profileErr, false)
 	}
 
 	if redirect != "" {
@@ -139,11 +131,7 @@ func (p DiscordProvider) UpdateUser() error {
 	}).Eq("provider_id", user.UserID).Eq("type", user.Provider).Execute(&out)
 
 	if insertErr != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  insertErr.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, insertErr, false)
 	}
 
 	var profile []utils.IProfile
@@ -157,11 +145,7 @@ func (p DiscordProvider) UpdateUser() error {
 	}).Eq("id", *out[0].ID).Execute(&profile)
 
 	if profileErr != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  profileErr.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, profileErr, false)
 	}
 
 	if redirect != "" {
