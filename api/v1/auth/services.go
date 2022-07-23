@@ -127,10 +127,22 @@ func LogoutHandler(ctx *fiber.Ctx) error {
 			log.Fatal(err)
 		}
 
+		var domain string
+
+		if os.Getenv("ENV") == "development" {
+			domain = "localhost"
+		} else {
+			domain = "astralapp.io"
+		}
+
 		// clear cookie didnt work for some reason
 		ctx.Cookie(&fiber.Cookie{
-			Name:  "token",
-			Value: "",
+			Name:     "token",
+			Value:    "",
+			Expires:  time.Now().Add(time.Hour * 24),
+			Domain:   domain,
+			HTTPOnly: os.Getenv("ENV") != "production",
+			Secure:   os.Getenv("ENV") == "production",
 		})
 
 		if redirect != "" {
@@ -202,7 +214,6 @@ func ProviderHandler(ctx *fiber.Ctx) error {
 
 	if err != nil {
 		return utils.ErrorResponse(ctx, 500, err, false)
-
 	}
 
 	return ctx.JSON(utils.Response[utils.IProvider]{
