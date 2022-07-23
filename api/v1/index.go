@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"sort"
@@ -180,7 +181,7 @@ func IntegrationHandler(c *fiber.Ctx) error {
 	}
 
 	if len(integrations) == 0 {
-		return utils.ErrorResponse(c, http.StatusNotFound, "Integration not found")
+		return utils.ErrorResponse(c, http.StatusNotFound, errors.New("Integration not found"), true)
 	}
 
 	integration = integrations[0]

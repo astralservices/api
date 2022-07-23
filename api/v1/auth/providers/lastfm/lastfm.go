@@ -50,11 +50,7 @@ func (p LastfmProvider) CreateUser() error {
 	}).Execute(&out)
 
 	if insertErr != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  insertErr.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, insertErr, false)
 	}
 
 	if redirect != "" {
@@ -87,11 +83,7 @@ func (p LastfmProvider) UpdateUser() error {
 	}).Eq("provider_id", user.UserID).Eq("type", user.Provider).Eq("user", *discordUser.ID).Execute(&out)
 
 	if insertErr != nil {
-		return ctx.Status(500).JSON(utils.Response[any]{
-			Result: nil,
-			Code:   http.StatusInternalServerError,
-			Error:  insertErr.Error(),
-		})
+		return utils.ErrorResponse(ctx, 500, insertErr, false)
 	}
 
 	if redirect != "" {

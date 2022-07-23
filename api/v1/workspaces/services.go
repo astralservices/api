@@ -1,6 +1,7 @@
 package workspaces
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -28,7 +29,7 @@ func GetWorkspaces(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_members").Select("workspace(*)").Eq("profile", *user.ID).Execute(&workspace_memberships)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	return ctx.Status(200).JSON(utils.Response[[]any]{
@@ -54,7 +55,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&workspaceData)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	client := fiber.AcquireClient()
@@ -64,7 +65,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	err = database.DB.From("plans").Select("*").Single().Eq("id", workspaceData.Plan).Execute(&plan)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	plans := map[string]int{
@@ -89,7 +90,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	subscription, err := sub.New(stripeParams)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	// create the workspace
@@ -111,7 +112,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	}).Execute(&workspaces)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	workspace := workspaces[0]
@@ -129,13 +130,13 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	fileHeader, err := ctx.FormFile("icon")
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	file, err := fileHeader.Open()
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	// resize the image
@@ -143,7 +144,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	img, _, err := image.Decode(file)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	resized := resize.Thumbnail(200, 200, img, resize.Lanczos3)
@@ -151,7 +152,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	err = png.Encode(agent.Request().BodyWriter(), resized)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	req, res := agent.Request(), fiber.AcquireResponse()
@@ -159,7 +160,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	err = agent.Do(req, res)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	// update the workspace with the path to the icon
@@ -171,7 +172,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	}).Eq("id", *workspace.ID).Execute(&updatedWorkspaces)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	updatedWorkspace := updatedWorkspaces[0]
@@ -187,7 +188,7 @@ func CreateWorkspace(ctx *fiber.Ctx) error {
 	}).Execute(&workspace_membership)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	redirect := workspaceData.Redirect
@@ -227,7 +228,7 @@ func UpdateWorkspace(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&workspaceData)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	client := fiber.AcquireClient()
@@ -237,7 +238,7 @@ func UpdateWorkspace(ctx *fiber.Ctx) error {
 	err = database.DB.From("plans").Select("*").Single().Eq("id", workspaceData.Plan).Execute(&plan)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	plans := map[string]int{
@@ -261,7 +262,7 @@ func UpdateWorkspace(ctx *fiber.Ctx) error {
 	}).Eq("id", *workspace.ID).Execute(&workspaces)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	workspace = workspaces[0]
@@ -269,7 +270,7 @@ func UpdateWorkspace(ctx *fiber.Ctx) error {
 	mf, err := ctx.MultipartForm()
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	iconExists := mf.File["icon"]
@@ -279,7 +280,7 @@ func UpdateWorkspace(ctx *fiber.Ctx) error {
 		icon, err := ctx.FormFile("icon")
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 
 		// upload the workspace logo
@@ -295,7 +296,7 @@ func UpdateWorkspace(ctx *fiber.Ctx) error {
 		file, err := icon.Open()
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 
 		// resize the image
@@ -303,7 +304,7 @@ func UpdateWorkspace(ctx *fiber.Ctx) error {
 		img, _, err := image.Decode(file)
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 
 		resized := resize.Thumbnail(200, 200, img, resize.Lanczos3)
@@ -311,7 +312,7 @@ func UpdateWorkspace(ctx *fiber.Ctx) error {
 		err = png.Encode(agent.Request().BodyWriter(), resized)
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 
 		req, res := agent.Request(), fiber.AcquireResponse()
@@ -319,7 +320,7 @@ func UpdateWorkspace(ctx *fiber.Ctx) error {
 		err = agent.Do(req, res)
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 
 		// update the workspace with the path to the icon
@@ -331,7 +332,7 @@ func UpdateWorkspace(ctx *fiber.Ctx) error {
 		}).Eq("id", *workspace.ID).Execute(&updatedWorkspaces)
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 
 		workspace = updatedWorkspaces[0]
@@ -361,7 +362,7 @@ func GetWorkspaceMembers(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_members").Select("*, profile(*)").Eq("workspace", *workspace.ID).Execute(&workspace_members)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if countOnly {
@@ -391,7 +392,7 @@ func AddWorkspaceMember(ctx *fiber.Ctx) error {
 	err := database.DB.From("profiles").Select("*").Single().Eq("discord_id", ctx.FormValue("discord")).Execute(&member_profile)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	// check if the user is already a member of the workspace
@@ -399,7 +400,7 @@ func AddWorkspaceMember(ctx *fiber.Ctx) error {
 	err = database.DB.From("workspace_members").Select("*").Eq("workspace", *workspace.ID).Eq("profile", member_profile.ID).Execute(&workspace_membership)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, "User is already a member of this workspace")
+		return utils.ErrorResponse(ctx, 500, errors.New("User is already a member of this workspace"), true)
 	}
 
 	err = database.DB.From("workspace_members").Insert(map[string]interface{}{
@@ -411,7 +412,7 @@ func AddWorkspaceMember(ctx *fiber.Ctx) error {
 	}).Execute(&workspace_membership)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if redirect != "" {
@@ -434,7 +435,7 @@ func GetWorkspaceMember(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_members").Select("*, profile(*)").Eq("workspace", *workspace.ID).Eq("profile", ctx.Params("member")).Execute(&workspace_members)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if len(workspace_members) == 0 {
@@ -467,7 +468,7 @@ func UpdateWorkspaceMember(ctx *fiber.Ctx) error {
 	}).Eq("workspace", *workspace.ID).Eq("profile", ctx.Params("member")).Execute(&workspace_members)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if redirect != "" {
@@ -492,7 +493,7 @@ func RemoveWorkspaceMember(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_members").Delete().Eq("workspace", *workspace.ID).Eq("id", ctx.Params("member")).Execute(&workspace_members)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if redirect != "" {
@@ -515,7 +516,7 @@ func GetWorkspaceAnalytics(ctx *fiber.Ctx) error {
 	err := database.DB.From("bots").Select("id").Eq("workspace", *workspace.ID).Execute(&bots)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if len(bots) == 0 {
@@ -532,7 +533,7 @@ func GetWorkspaceAnalytics(ctx *fiber.Ctx) error {
 	err = database.DB.From("bot_analytics").Select("commands, timestamp, members, messages").Eq("bot", *bot.ID).Execute(&analytics)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	// sort array by timestamp, latest first
@@ -597,7 +598,7 @@ func CreateWorkspaceBot(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&formData)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	// validate the token through Discord's API by fetching the self user
@@ -613,11 +614,11 @@ func CreateWorkspaceBot(ctx *fiber.Ctx) error {
 	err = agent.Do(req, res)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if res.StatusCode() != 200 {
-		return utils.ErrorResponse(ctx, 422, "Invalid token")
+		return utils.ErrorResponse(ctx, 422, errors.New("Invalid token"), true)
 	}
 
 	var bots []any
@@ -635,7 +636,7 @@ func CreateWorkspaceBot(ctx *fiber.Ctx) error {
 	}).Execute(&bots)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	bot = bots[0]
@@ -672,7 +673,7 @@ func UpdateWorkspaceBot(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&form)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	var bots []any
@@ -688,7 +689,7 @@ func UpdateWorkspaceBot(ctx *fiber.Ctx) error {
 	}).Eq("workspace", *workspace.ID).Execute(&bots)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	updatedBot = bots[0]
@@ -715,7 +716,7 @@ func DeleteWorkspaceBot(ctx *fiber.Ctx) error {
 	err := database.DB.From("bots").Delete().Eq("workspace", *workspace.ID).Eq("id", ctx.Params("bot")).Execute(&bot)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if redirect != "" {
@@ -738,7 +739,7 @@ func GetWorkspaceIntegrations(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_integrations").Select("*").Eq("workspace", *workspace.ID).Execute(&integrations)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	return ctx.Status(200).JSON(utils.Response[any]{
@@ -771,7 +772,7 @@ func EnableWorkspaceIntegration(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_integrations").Select("*").Eq("workspace", *workspace.ID).Eq("integration", integrationId).Execute(&integrations)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if len(integrations) == 0 {
@@ -782,7 +783,7 @@ func EnableWorkspaceIntegration(ctx *fiber.Ctx) error {
 		}).Execute(&integrations)
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 	} else {
 		err = database.DB.From("workspace_integrations").Update(map[string]interface{}{
@@ -790,7 +791,7 @@ func EnableWorkspaceIntegration(ctx *fiber.Ctx) error {
 		}).Eq("workspace", *workspace.ID).Eq("integration", integrationId).Execute(&integrations)
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 	}
 
@@ -821,7 +822,7 @@ func DisableWorkspaceIntegration(ctx *fiber.Ctx) error {
 	err := database.DB.From("workspace_integrations").Select("*").Eq("workspace", *workspace.ID).Eq("integration", integrationId).Execute(&integrations)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if len(integrations) == 0 {
@@ -832,7 +833,7 @@ func DisableWorkspaceIntegration(ctx *fiber.Ctx) error {
 		}).Execute(&integrations)
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 	} else {
 		err = database.DB.From("workspace_integrations").Update(map[string]interface{}{
@@ -840,7 +841,7 @@ func DisableWorkspaceIntegration(ctx *fiber.Ctx) error {
 		}).Eq("workspace", *workspace.ID).Eq("integration", integrationId).Execute(&integrations)
 
 		if err != nil {
-			return utils.ErrorResponse(ctx, 500, err.Error())
+			return utils.ErrorResponse(ctx, 500, err, false)
 		}
 	}
 
@@ -866,7 +867,7 @@ func UpdateWorkspaceIntegration(ctx *fiber.Ctx) error {
 	form, err := ctx.Request().MultipartForm()
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	data := make(map[string]interface{})
@@ -878,7 +879,7 @@ func UpdateWorkspaceIntegration(ctx *fiber.Ctx) error {
 	out, err := flat.Unflatten(data, nil)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	fmt.Printf("%+v\n", out)
@@ -890,7 +891,7 @@ func UpdateWorkspaceIntegration(ctx *fiber.Ctx) error {
 	}).Eq("id", strconv.Itoa(integration.ID)).Execute(&integrations)
 
 	if err != nil {
-		return utils.ErrorResponse(ctx, 500, err.Error())
+		return utils.ErrorResponse(ctx, 500, err, false)
 	}
 
 	if redirect != "" {
