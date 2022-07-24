@@ -24,10 +24,12 @@ require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/aybabtme/flatjson v0.1.1 // indirect
 	github.com/getsentry/sentry-go v0.13.0 // indirect
+	github.com/gofiber/storage/postgres v0.0.0-20220523092334-6d96fb56afb5 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gorilla/sessions v1.1.1 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/klauspost/compress v1.15.0 // indirect
+	github.com/lib/pq v1.10.6 // indirect
 	github.com/nqd/flat v0.1.1 // indirect
 	github.com/swaggo/files v0.0.0-20210815190702-a29dd2bc99b2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
