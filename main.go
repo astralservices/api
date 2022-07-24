@@ -44,7 +44,6 @@ func main() {
 	app := fiber.New(fiber.Config{
 		JSONEncoder:   json.Marshal,
 		JSONDecoder:   json.Unmarshal,
-		Prefork:       os.Getenv("PRODUCTION") == "true",
 		CaseSensitive: true,
 		StrictRouting: true,
 		ServerHeader:  "Astral Services API",
