@@ -65,8 +65,9 @@ func main() {
 
 	api := app.Group("/api")
 
+	auth.InitGoth()
+
 	v1.V1Handler(api.Group("/v1", func(c *fiber.Ctx) error {
-		auth.InitGoth()
 		c.Set("Version", "v1")
 		return c.Next()
 	}))
