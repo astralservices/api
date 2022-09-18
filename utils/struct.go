@@ -350,3 +350,12 @@ type IDiscordApiUser struct {
 	PremiumType   *int    `json:"premium_type,omitempty"`
 	PublicFlags   *int    `json:"public_flags,omitempty"`
 }
+
+type IIntegrationData struct {
+	ID                   int     `json:"id"`
+	CreatedAt            *string `json:"created_at,omitempty"`
+	Integration          string  `json:"integration"`
+	WorkspaceIntegration int     `json:"workspaceIntegration"`
+	User                 string  `json:"user"`
+	Data                 any     `json:"data"`
+}
