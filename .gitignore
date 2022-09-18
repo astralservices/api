@@ -24,3 +24,6 @@ go.work
 
 .env
 .env.local
+
+# Ignore Synology stuff
+@eaDir

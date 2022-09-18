@@ -1,6 +1,7 @@
 package workspaces
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
@@ -900,6 +902,159 @@ func UpdateWorkspaceIntegration(ctx *fiber.Ctx) error {
 
 	return ctx.Status(200).JSON(utils.Response[any]{
 		Result: integration,
+		Code:   http.StatusOK,
+	})
+}
+
+func GetIntegrationData(ctx *fiber.Ctx) error {
+	database := db.New()
+
+	integration := ctx.Locals("integration").(utils.IWorkspaceIntegration)
+
+	var data []utils.IIntegrationData
+
+	err := database.DB.From("integration_data").Select("*").Eq("workspaceIntegration", strconv.Itoa(integration.ID)).Execute(&data)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err, false)
+	}
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: data,
+		Code:   http.StatusOK,
+	})
+}
+
+func GetIntegrationDataForUser(ctx *fiber.Ctx) error {
+	database := db.New()
+
+	integration := ctx.Locals("integration").(utils.IWorkspaceIntegration)
+	user := ctx.Locals("user").(utils.IProvider)
+
+	var data []utils.IIntegrationData
+
+	err := database.DB.From("integration_data").Select("*").Eq("workspaceIntegration", strconv.Itoa(integration.ID)).Eq("user", user.ProviderID).Execute(&data)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err, false)
+	}
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: data,
+		Code:   http.StatusOK,
+	})
+}
+
+func UpdateIntegrationDataForUser(ctx *fiber.Ctx) error {
+	database := db.New()
+
+	integration := ctx.Locals("integration").(utils.IWorkspaceIntegration)
+	user := ctx.Locals("user").(utils.IProvider)
+
+	var data []utils.IIntegrationData
+
+	err := database.DB.From("integration_data").Select("*").Eq("workspaceIntegration", strconv.Itoa(integration.ID)).Eq("user", user.ProviderID).Execute(&data)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err, false)
+	}
+
+	var i utils.IIntegration
+
+	err = database.DB.From("integrations").Select("*").Single().Eq("id", integration.Integration).Execute(&i)
+
+	if err != nil {
+		return utils.ErrorResponse(ctx, 500, err, false)
+	}
+
+	if i.ID == "44b61604-49a8-4b4b-a868-86276cfdba62" { // custom college handler
+		type collegeData struct {
+			Room  string `json:"room"`
+			House string `json:"house"`
+			Email struct {
+				Verified         bool   `json:"verified"`
+				VerificationCode string `json:"verificationCode"`
+				Address          string `json:"address"`
+			} `json:"email"`
+		}
+
+		var d collegeData
+
+		collegeIntegration := data[0]
+
+		jsonStr, err := json.Marshal(collegeIntegration.Data)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err, false)
+		}
+
+		err = json.Unmarshal(jsonStr, &d)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err, false)
+		}
+
+		splitEmail := strings.Split(d.Email.Address, "@")
+
+		if len(splitEmail) != 2 {
+			return utils.ErrorResponse(ctx, 500, errors.New("invalid email"), false)
+		}
+
+		if splitEmail[1] != integration.Settings.(map[string]interface{})["emailDomain"] {
+			return utils.ErrorResponse(ctx, 500, errors.New("invalid email domain"), false)
+		}
+
+		if !d.Email.Verified {
+			verificationCode := ctx.FormValue("verificationCode")
+
+			if d.Email.VerificationCode == verificationCode {
+				d.Email.Verified = true
+
+				database.DB.From("integration_data").Update(map[string]interface{}{
+					"data": d,
+				}).Eq("workspaceIntegration", strconv.Itoa(integration.ID)).Eq("user", user.ProviderID).Execute(&data)
+
+				redirect := ctx.FormValue("redirect")
+				bot := ctx.Locals("bot").(utils.IBot)
+
+				if redirect != "" {
+					return ctx.Redirect(redirect + "?prefix=" + bot.Settings.Prefix)
+				}
+
+				return ctx.Status(200).JSON(utils.Response[any]{
+					Result: data,
+					Code:   http.StatusOK,
+				})
+			}
+
+			return utils.ErrorResponse(ctx, 400, errors.New("invalid verification code"), false)
+		}
+
+		return utils.ErrorResponse(ctx, 400, errors.New("email already verified"), false)
+	}
+
+	if len(data) == 0 {
+		err = database.DB.From("integration_data").Insert(map[string]interface{}{
+			"workspaceIntegration": strconv.Itoa(integration.ID),
+			"user":                 user.ProviderID,
+			"data":                 ctx.Body(),
+		}).Execute(&data)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err, false)
+		}
+	} else {
+		err = database.DB.From("integration_data").Update(map[string]interface{}{
+			"data": ctx.Body(),
+		}).Eq("workspaceIntegration", strconv.Itoa(integration.ID)).Eq("user", user.ProviderID).Execute(&data)
+
+		if err != nil {
+			return utils.ErrorResponse(ctx, 500, err, false)
+		}
+	}
+
+	return ctx.Status(200).JSON(utils.Response[any]{
+		Result: data,
 		Code:   http.StatusOK,
 	})
 }

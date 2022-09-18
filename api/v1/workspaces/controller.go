@@ -38,9 +38,14 @@ func WorkspacesHandler(router fiber.Router) {
 	workspaceRouter.Post("/integrations/enable/:integrationId", EnableWorkspaceIntegration)
 	workspaceRouter.Post("/integrations/disable/:integrationId", DisableWorkspaceIntegration)
 
-	integrationRouter := workspaceRouter.Group("/integrations/:integrationId").Use(utils.WorkspaceIntegrationMiddleware)
+	integrationRouter := workspaceRouter.Group("/integrations/:integrationId").Use(utils.WorkspaceIntegrationMiddleware, utils.BotMiddleware)
 	integrationRouter.Get("/", GetWorkspaceIntegration)
 	integrationRouter.Post("/", UpdateWorkspaceIntegration)
 	// integrationRouter.Delete("/", DeleteWorkspaceIntegration)
 
+	integrationRouter.Get("/data", GetIntegrationData)
+	// integrationRouter.Post("/data", UpdateIntegrationData)
+
+	integrationRouter.Get("/data/@me", GetIntegrationDataForUser)
+	integrationRouter.Post("/data/@me", UpdateIntegrationDataForUser)
 }
