@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
@@ -568,9 +569,10 @@ type BotSettings struct {
 }
 
 type BotFormData struct {
-	Region   *string      `json:"region,omitempty" form:"region,omitempty"`
-	Settings *BotSettings `json:"settings,omitempty" form:"settings,omitempty"`
-	Token    *string      `json:"token,omitempty" form:"token,omitempty"`
+	Region      *string                `json:"region,omitempty" form:"region,omitempty"`
+	Settings    *BotSettings           `json:"settings,omitempty" form:"settings,omitempty"`
+	Permissions *utils.IBotPermissions `json:"permissions,omitempty" form:"permissions,omitempty"`
+	Token       *string                `json:"token,omitempty" form:"token,omitempty"`
 }
 
 func CreateWorkspaceBot(ctx *fiber.Ctx) error {
@@ -668,12 +670,47 @@ func UpdateWorkspaceBot(ctx *fiber.Ctx) error {
 			CurrentActivity:     bot.Settings.CurrentActivity,
 			Modules:             bot.Settings.Modules,
 		},
+		Permissions: &utils.IBotPermissions{
+			Roles:             bot.Permissions.Roles,
+			Users:             bot.Permissions.Users,
+			DefaultAdminRules: bot.Permissions.DefaultAdminRules,
+			DefaultUserRules:  bot.Permissions.DefaultUserRules,
+		},
 	}
 
 	err := ctx.BodyParser(&form)
 
+	f, err := ctx.MultipartForm()
+
 	if err != nil {
 		return utils.ErrorResponse(ctx, 500, err, false)
+	}
+
+	// permissions are formatted like so: "permissions.roles.ROLEID" or "permissions.users.USERID"
+	// so we need to parse them out and add them to the permissions object
+
+	for key := range form.Permissions.Roles {
+		if _, ok := f.Value["permissions.roles."+key]; !ok {
+			delete(form.Permissions.Roles, key)
+		}
+	}
+
+	for key, value := range f.Value {
+		ks := strings.Split(key, ".")
+
+		if len(ks) == 3 {
+			if ks[0] == "permissions" {
+				if strings.HasSuffix(ks[2], "-input") {
+					// ignore this, it's just the input field
+					continue
+				}
+				if ks[1] == "roles" {
+					form.Permissions.Roles[ks[2]] = value
+				} else if ks[1] == "users" {
+					form.Permissions.Users[ks[2]] = value
+				}
+			}
+		}
 	}
 
 	var bots []any
@@ -683,9 +720,10 @@ func UpdateWorkspaceBot(ctx *fiber.Ctx) error {
 	database := db.New()
 
 	err = database.DB.From("bots").Update(BotFormData{
-		Region:   form.Region,
-		Settings: form.Settings,
-		Token:    form.Token,
+		Region:      form.Region,
+		Settings:    form.Settings,
+		Token:       form.Token,
+		Permissions: form.Permissions,
 	}).Eq("workspace", *workspace.ID).Execute(&bots)
 
 	if err != nil {
