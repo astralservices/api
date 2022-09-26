@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	db "github.com/astralservices/api/supabase"
 	"github.com/astralservices/api/utils"
@@ -669,13 +670,47 @@ func UpdateWorkspaceBot(ctx *fiber.Ctx) error {
 			CurrentActivity:     bot.Settings.CurrentActivity,
 			Modules:             bot.Settings.Modules,
 		},
-		Permissions: &bot.Permissions,
+		Permissions: &utils.IBotPermissions{
+			Roles:             bot.Permissions.Roles,
+			Users:             bot.Permissions.Users,
+			DefaultAdminRules: bot.Permissions.DefaultAdminRules,
+			DefaultUserRules:  bot.Permissions.DefaultUserRules,
+		},
 	}
 
 	err := ctx.BodyParser(&form)
 
+	f, err := ctx.MultipartForm()
+
 	if err != nil {
 		return utils.ErrorResponse(ctx, 500, err, false)
+	}
+
+	// permissions are formatted like so: "permissions.roles.ROLEID" or "permissions.users.USERID"
+	// so we need to parse them out and add them to the permissions object
+
+	for key := range form.Permissions.Roles {
+		if _, ok := f.Value["permissions.roles."+key]; !ok {
+			delete(form.Permissions.Roles, key)
+		}
+	}
+
+	for key, value := range f.Value {
+		ks := strings.Split(key, ".")
+
+		if len(ks) == 3 {
+			if ks[0] == "permissions" {
+				if strings.HasSuffix(ks[2], "-input") {
+					// ignore this, it's just the input field
+					continue
+				}
+				if ks[1] == "roles" {
+					form.Permissions.Roles[ks[2]] = value
+				} else if ks[1] == "users" {
+					form.Permissions.Users[ks[2]] = value
+				}
+			}
+		}
 	}
 
 	var bots []any
