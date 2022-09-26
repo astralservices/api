@@ -568,9 +568,10 @@ type BotSettings struct {
 }
 
 type BotFormData struct {
-	Region   *string      `json:"region,omitempty" form:"region,omitempty"`
-	Settings *BotSettings `json:"settings,omitempty" form:"settings,omitempty"`
-	Token    *string      `json:"token,omitempty" form:"token,omitempty"`
+	Region      *string                `json:"region,omitempty" form:"region,omitempty"`
+	Settings    *BotSettings           `json:"settings,omitempty" form:"settings,omitempty"`
+	Permissions *utils.IBotPermissions `json:"permissions,omitempty" form:"permissions,omitempty"`
+	Token       *string                `json:"token,omitempty" form:"token,omitempty"`
 }
 
 func CreateWorkspaceBot(ctx *fiber.Ctx) error {
@@ -668,6 +669,7 @@ func UpdateWorkspaceBot(ctx *fiber.Ctx) error {
 			CurrentActivity:     bot.Settings.CurrentActivity,
 			Modules:             bot.Settings.Modules,
 		},
+		Permissions: &bot.Permissions,
 	}
 
 	err := ctx.BodyParser(&form)
@@ -683,9 +685,10 @@ func UpdateWorkspaceBot(ctx *fiber.Ctx) error {
 	database := db.New()
 
 	err = database.DB.From("bots").Update(BotFormData{
-		Region:   form.Region,
-		Settings: form.Settings,
-		Token:    form.Token,
+		Region:      form.Region,
+		Settings:    form.Settings,
+		Token:       form.Token,
+		Permissions: form.Permissions,
 	}).Eq("workspace", *workspace.ID).Execute(&bots)
 
 	if err != nil {
