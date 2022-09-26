@@ -695,6 +695,12 @@ func UpdateWorkspaceBot(ctx *fiber.Ctx) error {
 		}
 	}
 
+	for key := range form.Permissions.Users {
+		if _, ok := f.Value["permissions.users."+key]; !ok {
+			delete(form.Permissions.Users, key)
+		}
+	}
+
 	for key, value := range f.Value {
 		ks := strings.Split(key, ".")
 
