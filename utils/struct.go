@@ -157,14 +157,22 @@ type IPlan struct {
 }
 
 type IBot struct {
-	ID        *string       `json:"id,omitempty"`
-	CreatedAt *time.Time    `json:"created_at,omitempty"`
-	Region    string        `json:"region" form:"region"`
-	Owner     *string       `json:"owner,omitempty"`
-	Workspace *IWorkspace   `json:"workspace,omitempty"`
-	Settings  IBotSettings  `json:"settings" form:"settings"`
-	Token     string        `json:"token" form:"token"`
-	Commands  []IBotCommand `json:"commands" form:"commands"`
+	ID          *string         `json:"id,omitempty"`
+	CreatedAt   *time.Time      `json:"created_at,omitempty"`
+	Region      string          `json:"region" form:"region"`
+	Owner       *string         `json:"owner,omitempty"`
+	Workspace   *IWorkspace     `json:"workspace,omitempty"`
+	Settings    IBotSettings    `json:"settings" form:"settings"`
+	Token       string          `json:"token" form:"token"`
+	Commands    []IBotCommand   `json:"commands" form:"commands"`
+	Permissions IBotPermissions `json:"permissions" form:"permissions"`
+}
+
+type IBotPermissions struct {
+	DefaultAdminRules []string            `json:"defaultAdminRules" form:"defaultAdminRules"`
+	DefaultUserRules  []string            `json:"defaultUserRules" form:"defaultUserRules"`
+	Users             map[string][]string `json:"users" form:"users"`
+	Roles             map[string][]string `json:"roles" form:"roles"`
 }
 
 type IBotCommand struct {

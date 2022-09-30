@@ -208,7 +208,7 @@ func BotMiddleware(ctx *fiber.Ctx) error {
 
 	database := db.New()
 
-	err := database.DB.From("bots").Select("id, created_at, owner, region, settings, token, commands").Eq("workspace", *workspace.ID).Execute(&bots)
+	err := database.DB.From("bots").Select("id, created_at, owner, region, settings, token, commands, permissions").Eq("workspace", *workspace.ID).Execute(&bots)
 
 	if err != nil {
 		return ctx.Status(500).JSON(Response[any]{
